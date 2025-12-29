@@ -47,13 +47,13 @@ export function Navbar() {
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
             <Button variant="ghost" asChild>
-              <Link href="/login">
+              <Link href="/auth/login">
                 <LogIn className="w-4 h-4 mr-1" />
                 Login
               </Link>
             </Button>
             <Button asChild>
-              <Link href="/register">Get Started</Link>
+              <Link href="/auth/register">Get Started</Link>
             </Button>
           </div>
 
