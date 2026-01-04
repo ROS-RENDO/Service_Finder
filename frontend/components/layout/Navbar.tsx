@@ -1,10 +1,11 @@
-"use client"
+"use client";
 import { useState } from "react";
-import {  usePathname  } from "next/navigation";
+import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import { Menu, X, Sparkles, User, LogIn } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
+import { useAuthContext } from "@/lib/contexts/AuthContext";
 
 const navLinks = [
   { name: "Services", href: "/services" },
@@ -15,6 +16,18 @@ const navLinks = [
 export function Navbar() {
   const [isOpen, setIsOpen] = useState(false);
   const location = usePathname();
+  const { isAuthenticated, user } = useAuthContext();
+  const dashboardPath = user
+    ? `/${
+        user.role === "customer"
+          ? "customer"
+          : user.role === "company_admin"
+          ? "company"
+          : user.role === "staff"
+          ? "staff"
+          : "admin"
+      }/dashboard`
+    : "/";
 
   return (
     <nav className="fixed top-0 left-0 right-0 z-50 glass">
@@ -46,15 +59,26 @@ export function Navbar() {
 
           {/* Desktop Actions */}
           <div className="hidden md:flex items-center gap-3">
-            <Button variant="ghost" asChild>
-              <Link href="/auth/login">
-                <LogIn className="w-4 h-4 mr-1" />
-                Login
-              </Link>
-            </Button>
-            <Button asChild>
-              <Link href="/auth/register">Get Started</Link>
-            </Button>
+            {isAuthenticated ? (
+              <Button asChild>
+                <Link href={dashboardPath}>
+                  <User className="w-4 h-4 mr-1" />
+                  Dashboard
+                </Link>
+              </Button>
+            ) : (
+              <>
+                <Button variant="ghost" asChild>
+                  <Link href="/auth/login">
+                    <LogIn className="w-4 h-4 mr-1" />
+                    Login
+                  </Link>
+                </Button>
+                <Button asChild>
+                  <Link href="/auth/register">Get Started</Link>
+                </Button>
+              </>
+            )}
           </div>
 
           {/* Mobile Menu Button */}
@@ -88,17 +112,31 @@ export function Navbar() {
                 </Link>
               ))}
               <div className="pt-3 flex flex-col gap-2 border-t border-border">
-                <Button variant="outline" asChild className="w-full">
-                  <Link href="/login" onClick={() => setIsOpen(false)}>
-                    <LogIn className="w-4 h-4 mr-1" />
-                    Login
-                  </Link>
-                </Button>
-                <Button asChild className="w-full">
-                  <Link href="/register" onClick={() => setIsOpen(false)}>
-                    Get Started
-                  </Link>
-                </Button>
+                {isAuthenticated ? (
+                  <Button asChild className="w-full">
+                    <Link href={dashboardPath} onClick={() => setIsOpen(false)}>
+                      <User className="w-4 h-4 mr-1" />
+                      Dashboard
+                    </Link>
+                  </Button>
+                ) : (
+                  <>
+                    <Button variant="outline" asChild className="w-full">
+                      <Link href="/auth/login" onClick={() => setIsOpen(false)}>
+                        <LogIn className="w-4 h-4 mr-1" />
+                        Login
+                      </Link>
+                    </Button>
+                    <Button asChild className="w-full">
+                      <Link
+                        href="/auth/register"
+                        onClick={() => setIsOpen(false)}
+                      >
+                        Get Started
+                      </Link>
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
           </motion.div>

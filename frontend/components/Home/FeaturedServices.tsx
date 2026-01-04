@@ -84,7 +84,7 @@ export function FeaturedServices() {
               transition={{ delay: index * 0.1 }}
             >
               <Link
-                href={`company/services/${service.id}`}
+                href={`customer/companies/${service.id}`}
                 className="group block bg-card rounded-2xl overflow-hidden shadow-soft hover:shadow-card transition-all duration-300"
               >
                 <div className="relative h-48 overflow-hidden">

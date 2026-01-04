@@ -3,15 +3,29 @@
 import Link from 'next/link'
 import { Bell, User, LogOut } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { useAuthContext } from '@/lib/contexts/AuthContext'
+import apiClient from '@/lib/api/client'
 
 export default function CustomerHeader() {
   const router = useRouter()
-
-  const handleLogout = () => {
-    // Clear auth token
-    localStorage.removeItem('token')
-    router.push('/login')
-  }
+  const { checkAuth } = useAuthContext()
+  
+  const handleLogout = async () => {
+        try {
+      // ✅ Call logout endpoint (clears cookie)
+      await apiClient.post('/api/auth/logout')
+      
+      // ✅ Update context
+      await checkAuth()
+      
+      // ✅ Redirect to home
+      router.push('/')
+      
+      console.log('✅ Logged out successfully')
+    } catch (error) {
+      console.error('❌ Logout failed:', error)
+    }
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">

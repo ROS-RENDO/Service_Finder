@@ -210,9 +210,9 @@ export default function StaffBookingDetail() {
               )}
             >
               {task.completed ? (
-                <CheckCircle2 className="w-5 h-5 flex-shrink-0" />
+                <CheckCircle2 className="w-5 h-5 shrink-0" />
               ) : (
-                <Circle className="w-5 h-5 flex-shrink-0 text-muted-foreground" />
+                <Circle className="w-5 h-5 shrink-0 text-muted-foreground" />
               )}
               <span className={cn("text-sm", task.completed && "line-through opacity-70")}>
                 {task.task}

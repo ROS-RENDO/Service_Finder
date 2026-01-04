@@ -1,28 +1,48 @@
-'use client'
+"use client";
 
-import Link from 'next/link'
-import { Bell, User, LogOut, Building2 } from 'lucide-react'
-import { useRouter } from 'next/navigation'
+import Link from "next/link";
+import { Bell, User, LogOut, Building2 } from "lucide-react";
+import { useRouter } from "next/navigation";
+import { useAuthContext } from '@/lib/contexts/AuthContext'
+import apiClient from '@/lib/api/client'
 
 export default function CompanyHeader() {
-  const router = useRouter()
+  const router = useRouter();
+    const { checkAuth } = useAuthContext()
 
-  const handleLogout = () => {
-    localStorage.removeItem('token')
-    router.push('/login')
-  }
+   const handleLogout = async () => {
+        try {
+      // ✅ Call logout endpoint (clears cookie)
+      await apiClient.post('/api/auth/logout')
+      
+      // ✅ Update context
+      await checkAuth()
+      
+      // ✅ Redirect to home
+      router.push('/')
+      
+      console.log('✅ Logged out successfully')
+    } catch (error) {
+      console.error('❌ Logout failed:', error)
+    }
+  };
 
   return (
     <header className="bg-white border-b border-gray-200 sticky top-0 z-50">
       <div className="px-8 py-4 flex items-center justify-between">
         {/* Logo & Company Name */}
         <div className="flex items-center gap-4">
-          <Link href="/company/dashboard" className="text-xl font-bold text-gray-900">
+          <Link
+            href="/company/dashboard"
+            className="text-xl font-bold text-gray-900"
+          >
             CleanService
           </Link>
           <div className="flex items-center gap-2 px-3 py-1 bg-blue-50 rounded-full">
             <Building2 size={16} className="text-blue-600" />
-            <span className="text-sm font-medium text-blue-600">Company Portal</span>
+            <span className="text-sm font-medium text-blue-600">
+              Company Portal
+            </span>
           </div>
         </div>
 
@@ -41,7 +61,7 @@ export default function CompanyHeader() {
             <button className="p-2 hover:bg-gray-100 rounded-full">
               <User size={20} />
             </button>
-            <button 
+            <button
               onClick={handleLogout}
               className="p-2 hover:bg-red-50 rounded-full text-red-600"
             >
@@ -51,5 +71,5 @@ export default function CompanyHeader() {
         </div>
       </div>
     </header>
-  )
+  );
 }

@@ -165,5 +165,32 @@
   }
 }
 
+@keyframes flicker {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.3; }
+}
+
+@keyframes pulse-slow {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-flicker {
+  animation: flicker 1.4s infinite ease-in-out;
+}
+
+.animate-pulse-slow {
+  animation: pulse-slow 2s infinite ease-in-out;
+}
+
+/* Stagger animation delays */
+.animate-flicker:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.animate-flicker:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
 
 
