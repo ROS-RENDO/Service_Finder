@@ -9,17 +9,44 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
 import Image from "next/image";
+import { useAuth } from "@/lib/hooks/useAuth";
+import {  FlickerDots } from "@/components/common/FlickerDots";
+import { ErrorMessage } from "@/components/common/ErrorMessage";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('')
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const { login }= useAuth()
   const { toast } = useToast();
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+
+    const result = await login(email, password)
+
+        if (result.success) {
+      // Redirect based on user role
+      switch (result.user.role) {
+        case 'customer':
+          router.push('/customer/dashboard')
+          break
+        case 'company_admin':
+          router.push('/company/dashboard')
+          break
+        case 'staff':
+          router.push('/staff/dashboard')
+          break
+        case 'admin':
+          router.push('/admin/dashboard')
+          break
+      }
+    } else {
+      setError(result.error || 'Login failed')
+    }
 
     // Simulate login - in production, connect to backend
     setTimeout(() => {
@@ -28,7 +55,6 @@ export default function Login() {
         title: "Welcome back!",
         description: "You've successfully logged in.",
       });
-      router.push("/dashboard");
     }, 1500);
   };
 
@@ -79,7 +105,7 @@ export default function Login() {
               <div className="flex items-center justify-between">
                 <Label htmlFor="password">Password</Label>
                 <Link
-                  href="/forgot-password"
+                  href="/auth/forgot-password"
                   className="text-sm text-primary hover:underline"
                 >
                   Forgot password?
@@ -110,13 +136,15 @@ export default function Login() {
               </div>
             </div>
 
+            {error && <ErrorMessage message={error}/>}
+
             <Button
               type="submit"
               size="lg"
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? "Signing in..." : "Sign In"}
+              {isLoading ? <FlickerDots/> : "Sign In"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </form>
@@ -124,7 +152,7 @@ export default function Login() {
           <p className="text-center text-muted-foreground mt-8">
             Dont have an account?{" "}
             <Link
-              href="/register"
+              href="/auth/register"
               className="text-primary font-medium hover:underline"
             >
               Create one

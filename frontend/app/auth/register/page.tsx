@@ -8,7 +8,11 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useAuth } from "@/lib/hooks/useAuth";
 import Image from "next/image";
+import { FlickerDots } from "@/components/common/FlickerDots";
+import { ErrorMessage } from "@/components/common/ErrorMessage";
+
 
 const roles = [
   {
@@ -31,29 +35,73 @@ const roles = [
   },
 ];
 
+
 export default function Register() {
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-  const [name, setName] = useState("");
   const [selectedRole, setSelectedRole] = useState("customer");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
+  const { register } = useAuth();
+  const [error, setError] = useState('');
+  
+  const [formData, setFormData] = useState({
+    fullName: '',
+    email: '',
+    phone: '',
+    password: '',
+  })
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsLoading(true);
+    setError(''); 
 
-    // Simulate registration - in production, connect to backend
-    setTimeout(() => {
+    if (!selectedRole) {
+      setError("Please select a role");
       setIsLoading(false);
+      return;
+    }
+
+    
+    const result = await register({
+      fullName: formData.fullName,
+      email: formData.email,
+      phone: formData.phone,
+      password: formData.password,
+      role: selectedRole 
+    })
+    
+    if (result.success) {
       toast({
         title: "Account created!",
         description: "Welcome to SparkleFind. Let's get started!",
       });
-      router.push("/dashboard");
-    }, 1500);
+
+      switch (result.user.role) {
+        case 'customer':
+          router.push('/customer/dashboard')
+          break
+        case 'company_admin':
+          router.push('/company/dashboard')
+          break
+        case 'staff':
+          router.push('/staff/dashboard')
+          break
+        case 'admin':
+          router.push('/admin/dashboard')
+          break
+      }
+    } else {
+      setError(result.error || 'Registration failed')
+      toast({
+        variant: "destructive",
+        title: "Registration failed",
+        description: result.error || "Please try again",
+      });
+    }
+    
+    setIsLoading(false); 
   };
 
   return (
@@ -142,8 +190,8 @@ export default function Register() {
                   id="name"
                   type="text"
                   placeholder="John Doe"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
+                  value={formData.fullName}
+                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
                   className="pl-10 h-12"
                   required
                 />
@@ -158,8 +206,8 @@ export default function Register() {
                   id="email"
                   type="email"
                   placeholder="you@example.com"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  value={formData.email}
+                  onChange={(e) => setFormData({...formData, email: e.target.value})}
                   className="pl-10 h-12"
                   required
                 />
@@ -174,8 +222,8 @@ export default function Register() {
                   id="password"
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
-                  value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  value={formData.password}
+                  onChange={(e) => setFormData({...formData, password: e.target.value})}
                   className="pl-10 pr-10 h-12"
                   required
                   minLength={8}
@@ -191,8 +239,10 @@ export default function Register() {
               <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
             </div>
 
+            {error && <ErrorMessage message={error}/>}
+
             <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
-              {isLoading ? "Creating account..." : "Create Account"}
+              {isLoading ? <FlickerDots/> : "Create Account"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
 
@@ -206,7 +256,7 @@ export default function Register() {
 
           <p className="text-center text-muted-foreground mt-8">
             Already have an account?{" "}
-            <Link href="/login" className="text-primary font-medium hover:underline">
+            <Link href="/auth/login" className="text-primary font-medium hover:underline">
               Sign in
             </Link>
           </p>
