@@ -1,6 +1,7 @@
 const express = require('express');
 const cors = require('cors');
 const helmet = require('helmet');
+const cookieParser = require('cookie-parser');
 const rateLimit = require('express-rate-limit');
 const errorHandler = require('./middleware/errorHandler');
 
@@ -15,6 +16,11 @@ const reviewRoutes = require('./routes/reviews.routes');
 
 const app = express();
 
+const corsOptions = {
+  origin: 'http://localhost:3000', // allow only your frontend
+  credentials: true,               // allow cookies
+};
+
 // Handle BigInt serialization in JSON
 BigInt.prototype.toJSON = function() {
   return this.toString();
@@ -22,7 +28,8 @@ BigInt.prototype.toJSON = function() {
 
 // Security middleware
 app.use(helmet());
-app.use(cors());
+app.use(cookieParser());
+app.use(cors(corsOptions));
 
 // Rate limiting
 const limiter = rateLimit({

@@ -3,16 +3,22 @@ const prisma = require('../config/database');
 
 const authenticate = async (req, res, next) => {
   try {
-    const token = req.headers.authorization?.replace('Bearer ', '');
+    // ✅ BEST: Check cookie first (HttpOnly, secure)
+    // ⚠️ FALLBACK: Check Authorization header (for mobile apps, API clients)
+    const token = req.cookies?.token || req.headers.authorization?.replace('Bearer ', '');
+
+    console.log('🔐 Auth check - Token from:', req.cookies?.token ? 'Cookie' : 'Header');
 
     if (!token) {
       return res.status(401).json({ error: 'Authentication required' });
     }
 
+    // Verify JWT
     const decoded = jwt.verify(token, process.env.JWT_SECRET);
     
+    // Get user from database
     const user = await prisma.user.findUnique({
-      where: { id: BigInt(decoded.userId) }, // Convert string back to BigInt
+      where: { id: BigInt(decoded.userId) },
       select: {
         id: true,
         fullName: true,
@@ -31,9 +37,12 @@ const authenticate = async (req, res, next) => {
       return res.status(403).json({ error: 'Account is suspended' });
     }
 
+    // Attach user to request
     req.user = user;
     next();
   } catch (error) {
+    console.error('❌ Auth error:', error.message);
+    
     if (error.name === 'JsonWebTokenError') {
       return res.status(401).json({ error: 'Invalid token' });
     }
