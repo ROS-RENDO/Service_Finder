@@ -10,44 +10,64 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@/components/common/PageHeader';
 import { RatingStars } from '@/components/common/RatingStars';
-import { companies, bookings } from '@/data/mockData';
+import { companies } from '@/data/mockData';
 import { useToast } from '@/lib/hooks/use-toast';
+import { useBookings } from '@/lib/hooks/useBookings';
+import { useReviews } from '@/lib/hooks/useReviews';
 
 export default function NewReviewPage() {
   const router = useRouter();
+  const { bookings } = useBookings({ status: 'completed' });
+  const { createReview }= useReviews();
   const { toast } = useToast();
 
   const completedBookings = bookings.filter((b) => b.status === 'completed');
 
   const [selectedBookingId, setSelectedBookingId] = useState('');
   const [rating, setRating] = useState(0);
-  const [reviewText, setReviewText] = useState('');
+  const [comment, setReviewText] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const selectedBooking = completedBookings.find((b) => b.id === selectedBookingId);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    
-    if (!selectedBookingId || rating === 0 || !reviewText.trim()) {
-      toast({
-        title: 'Missing Information',
-        description: 'Please select a booking, provide a rating, and write your review.',
-        variant: 'destructive',
-      });
-      return;
-    }
+  const handleSubmit = async (e: React.FormEvent) => {
+  e.preventDefault();
 
-    setIsSubmitting(true);
-    
-    setTimeout(() => {
-      toast({
-        title: 'Review Submitted!',
-        description: 'Thank you for sharing your feedback.',
-      });
-      router.push('/customer/reviews');
-    }, 1000);
-  };
+  if (!selectedBookingId || rating === 0 || !comment.trim()) {
+    toast({
+      title: 'Missing Information',
+      description: 'Please select a booking, provide a rating, and write your review.',
+      variant: 'destructive',
+    });
+    return;
+  }
+
+  setIsSubmitting(true);
+
+  const result = await createReview({
+    bookingId: selectedBookingId,
+    rating,
+    comment
+  });
+  console.log(result)
+
+  if (result.success) {
+    toast({
+      title: 'Review Submitted!',
+      description: 'Thank you for sharing your feedback.',
+    });
+    router.push('/customer/reviews');
+  } else {
+    toast({
+      title: 'Error',
+      description: result.error,
+      variant: 'destructive',
+    });
+  }
+
+  setIsSubmitting(false);
+};
+
 
   return (
     <div className="animate-fade-in">
@@ -80,7 +100,7 @@ export default function NewReviewPage() {
                 ) : (
                   completedBookings.map((booking) => (
                     <SelectItem key={booking.id} value={booking.id}>
-                      {booking.serviceName} - {booking.companyName} ({new Date(booking.date).toLocaleDateString()})
+                      {booking.service.name} - {booking.company.name} ({new Date(booking.bookingDate).toLocaleDateString()})
                     </SelectItem>
                   ))
                 )}
@@ -115,7 +135,7 @@ export default function NewReviewPage() {
             <Label htmlFor="review">Your Review *</Label>
             <Textarea
               id="review"
-              value={reviewText}
+              value={comment}
               onChange={(e) => setReviewText(e.target.value)}
               placeholder="Share your experience with this service. What did you like? What could be improved?"
               className="min-h-32 bg-background"
@@ -126,8 +146,8 @@ export default function NewReviewPage() {
           {selectedBooking && (
             <div className="rounded-lg bg-muted p-4">
               <p className="text-sm text-muted-foreground">Reviewing:</p>
-              <p className="font-medium">{selectedBooking.serviceName}</p>
-              <p className="text-sm text-muted-foreground">by {selectedBooking.companyName}</p>
+              <p className="font-medium">{selectedBooking.service.name}</p>
+              <p className="text-sm text-muted-foreground">by {selectedBooking.company.name}</p>
             </div>
           )}
 

@@ -13,6 +13,7 @@ interface User {
   id: string
   fullName: string
   email: string
+  phone: string
   role: 'customer' | 'company_admin' | 'staff' | 'admin'
   status: string
 }

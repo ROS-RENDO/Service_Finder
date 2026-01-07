@@ -37,12 +37,34 @@ export function useReviews(options: UseReviewsOptions = {}) {
     limit: 10,
     pages: 0
   })
-
-  useEffect(() => {
+   useEffect(() => {
     if (autoFetch) {
-      fetchReviews()
+      fetchMyReviews();
     }
-  }, [page, companyId, customerId])
+  }, [autoFetch]);
+
+    const fetchMyReviews = async () => {
+      try {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reviews/my`, {
+          method: 'GET',
+          credentials: 'include', // for cookie-based auth
+          headers: {
+            'Content-Type': 'application/json',
+            // 'Authorization': `Bearer ${token}` // if using JWT
+          },
+        });
+
+        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+
+        const data: Review[] = await res.json();
+        setReviews(data);
+      } catch (err: any) {
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
 
   const fetchReviews = async () => {
     setLoading(true)
@@ -79,6 +101,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(reviewData)
       })
 
@@ -147,6 +170,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
     loading,
     error,
     pagination,
+    fetchMyReviews,
     fetchReviews,
     createReview,
     updateReview,

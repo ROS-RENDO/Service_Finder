@@ -49,7 +49,7 @@ export function RatingStars({
               className={cn(
                 sizeClasses[size],
                 index < rating
-                  ? 'fill-accent text-accent'
+                  ? 'fill-accent text-amber-300'
                   : 'fill-muted text-muted-foreground/30'
               )}
             />

@@ -1,5 +1,5 @@
 "use client"
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { User, Mail, Phone, Edit2, Save, X, Gift, Lock } from 'lucide-react';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -11,30 +11,49 @@ import { userProfile } from '@/data/mockData';
 import { useToast } from '@/lib/hooks/use-toast';
 import Image from 'next/image';
 import { useAuthContext } from '@/lib/contexts/AuthContext';
+import { useUser } from '@/lib/hooks/useUser';
+import { useRouter } from 'next/navigation';
 
 export default function ProfilePage() {
   const { toast } = useToast();
+  const router= useRouter();
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({
-    name: userProfile.name,
-    email: userProfile.email,
-    phone: userProfile.phone,
+    name: '',
+    email: '',
+    phone: '',
   });
   const { user } = useAuthContext();
+  const {updateUser}= useUser();
 
-  const handleSave = () => {
+  const handleSave = async () => {
+  try {
+    await updateUser({
+      fullName: formData.name,
+      email: formData.email,
+      phone: formData.phone,
+    })
+
     toast({
       title: 'Profile Updated',
       description: 'Your profile information has been saved successfully.',
-    });
-    setIsEditing(false);
-  };
+    })
+
+    setIsEditing(false)
+  } catch (err) {
+    toast({
+      title: 'Update Failed',
+      description: err instanceof Error ? err.message : 'Something went wrong',
+      variant: 'destructive',
+    })
+  }
+}
 
   const handleCancel = () => {
     setFormData({
-      name: userProfile.name,
-      email: userProfile.email,
-      phone: userProfile.phone,
+      name: user?.fullName ?? '',
+      email: user?.email ?? '',
+      phone: user?.phone ?? '',
     });
     setIsEditing(false);
   };
@@ -44,7 +63,19 @@ export default function ProfilePage() {
       title: 'Password Reset Email Sent',
       description: 'Check your email for instructions to reset your password.',
     });
+    router.push('/auth/forgot-password')
   };
+
+useEffect(() => {
+    if (user){
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setFormData({
+        name: user.fullName,
+        email: user.email,
+        phone: user.phone ?? '',
+      });
+    }
+  }, [user])
 
   return (
     <div className="animate-fade-in">

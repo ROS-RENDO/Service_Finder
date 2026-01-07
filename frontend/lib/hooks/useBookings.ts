@@ -55,7 +55,9 @@ export function useBookings(options: UseBookingsOptions = {}) {
       params.append('limit', limit.toString())
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        method: 'GET',
+        credentials: 'include',
       })
 
       if (response.ok) {
