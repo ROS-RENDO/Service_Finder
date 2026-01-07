@@ -8,7 +8,7 @@ export default function CustomerLayout({
   children: React.ReactNode;
 }) {
   return (
-    <ProtectedRoute allowedRoles={["customer"]}>
+
       <div className="min-h-screen bg-gray-50">
         {/* Header */}
         <CustomerHeader />
@@ -23,6 +23,6 @@ export default function CustomerLayout({
           </main>
         </div>
       </div>
-    </ProtectedRoute>
+
   );
 }

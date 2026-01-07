@@ -8,7 +8,7 @@ import apiClient from '@/lib/api/client'
 
 export default function CompanyHeader() {
   const router = useRouter();
-    const { checkAuth } = useAuthContext()
+    const {user, checkAuth } = useAuthContext()
 
    const handleLogout = async () => {
         try {
@@ -55,7 +55,7 @@ export default function CompanyHeader() {
 
           <div className="flex items-center gap-3 pl-3 border-l">
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">Sparkle Clean</p>
+              <p className="text-sm font-medium text-gray-900">{user?.role}</p>
               <p className="text-xs text-gray-500">Company Admin</p>
             </div>
             <button className="p-2 hover:bg-gray-100 rounded-full">

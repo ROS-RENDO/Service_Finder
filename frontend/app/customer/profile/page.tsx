@@ -10,6 +10,7 @@ import { PageHeader } from '@/components/common/PageHeader';
 import { userProfile } from '@/data/mockData';
 import { useToast } from '@/lib/hooks/use-toast';
 import Image from 'next/image';
+import { useAuthContext } from '@/lib/contexts/AuthContext';
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -19,6 +20,7 @@ export default function ProfilePage() {
     email: userProfile.email,
     phone: userProfile.phone,
   });
+  const { user } = useAuthContext();
 
   const handleSave = () => {
     toast({

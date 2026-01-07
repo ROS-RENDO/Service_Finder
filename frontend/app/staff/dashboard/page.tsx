@@ -1,3 +1,4 @@
+"use client"
 import { StatCard } from "@/components/ui/stat-card";
 import { DashboardCard } from "@/components/ui/dashboard-card";
 import { Button } from "@/components/ui/button";
@@ -16,6 +17,8 @@ import {
   Briefcase,
   Star,
 } from "lucide-react";
+
+import { useAuthContext } from "@/lib/contexts/AuthContext";
 
 const todaySchedule = [
   {
@@ -61,13 +64,14 @@ const weeklyStats = [
 ];
 
 export default function StaffDashboard() {
+  const {user}= useAuthContext();
   return (
     <>
       {/* Header */}
       <div className="mb-8 animate-fade-in">
         <div className="flex flex-wrap items-center justify-between gap-4">
           <div>
-            <h1 className="text-3xl font-bold">Good morning, Maria! ☀️</h1>
+            <h1 className="text-3xl font-bold">Good morning, {user?.fullName}! ☀️</h1>
             <p className="mt-1 text-muted-foreground">
               You have 3 jobs scheduled for today
             </p>

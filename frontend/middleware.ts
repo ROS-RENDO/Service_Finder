@@ -21,9 +21,7 @@ export function middleware(request: NextRequest) {
   }
   
   // Has token + trying to access login/register = redirect to home
-  if (isAuthRoute && token) {
-    return NextResponse.redirect(new URL('/', request.url))
-  }
+
   
   return NextResponse.next()
 }

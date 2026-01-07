@@ -9,56 +9,63 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
 import Image from "next/image";
-import { useAuth } from "@/lib/hooks/useAuth";
-import {  FlickerDots } from "@/components/common/FlickerDots";
+import { useSearchParams } from "next/navigation";
+import { FlickerDots } from "@/components/common/FlickerDots";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
+import { useAuthContext } from "@/lib/contexts/AuthContext";
 export default function Login() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('')
+  const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
+  const searchParams= useSearchParams();
 
-  const { login }= useAuth()
+
+    const { login } = useAuthContext()
   const { toast } = useToast();
 
+  const redirectTo = searchParams.get('redirect')
 
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
 
     const result = await login(email, password)
+    
 
-        if (result.success) {
-      // Redirect based on user role
-      switch (result.user.role) {
-        case 'customer':
-          router.push('/customer/dashboard')
-          break
-        case 'company_admin':
-          router.push('/company/dashboard')
-          break
-        case 'staff':
-          router.push('/staff/dashboard')
-          break
-        case 'admin':
-          router.push('/admin/dashboard')
-          break
-      }
-    } else {
-      setError(result.error || 'Login failed')
-    }
-
-    // Simulate login - in production, connect to backend
-    setTimeout(() => {
-      setIsLoading(false);
+    if (result.success) {
       toast({
         title: "Welcome back!",
         description: "You've successfully logged in.",
-      });
-    }, 1500);
-  };
+      })
+
+      // Small delay to ensure cookie is set
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      // ✅ Redirect to intended page or default dashboard
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else {
+        // Will be redirected by home pazge based on role
+        router.push('/')
+      }
+      
+      // Force page reload to trigger middleware
+      router.refresh()
+    } else {
+      setError(result.error || "Login failed")
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: result.error || "Please check your credentials",
+      })
+    }
+
+    setIsLoading(false)
+  }
 
   return (
     <div className="min-h-screen flex">
@@ -138,7 +145,7 @@ export default function Login() {
               </div>
             </div>
 
-            {error && <ErrorMessage message={error}/>}
+            {error && <ErrorMessage message={error} />}
 
             <Button
               type="submit"
@@ -146,7 +153,7 @@ export default function Login() {
               className="w-full"
               disabled={isLoading}
             >
-              {isLoading ? <FlickerDots/> : "Sign In"}
+              {isLoading ? <FlickerDots /> : "Sign In"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
           </form>

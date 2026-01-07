@@ -1,6 +1,6 @@
 "use client"
 import { useState } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Sparkles, Mail, Lock, Eye, EyeOff, ArrowRight, User, Building2, Users } from "lucide-react";
@@ -8,10 +8,10 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
-import { useAuth } from "@/lib/hooks/useAuth";
 import Image from "next/image";
 import { FlickerDots } from "@/components/common/FlickerDots";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
+import { useAuthContext } from "@/lib/contexts/AuthContext";
 
 
 const roles = [
@@ -22,7 +22,7 @@ const roles = [
     icon: User,
   },
   {
-    id: "company",
+    id: "company_admin",
     name: "Company Admin",
     description: "Manage your cleaning business and staff",
     icon: Building2,
@@ -42,8 +42,9 @@ export default function Register() {
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { register } = useAuth();
+  const { register } = useAuthContext();
   const [error, setError] = useState('');
+  const searchParams= useSearchParams();
   
   const [formData, setFormData] = useState({
     fullName: '',
@@ -52,57 +53,83 @@ export default function Register() {
     password: '',
   })
 
+  const redirectTo = searchParams.get('redirect')
+
   const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsLoading(true);
-    setError(''); 
+  e.preventDefault()
+  setIsLoading(true)
+  setError("")
 
-    if (!selectedRole) {
-      setError("Please select a role");
-      setIsLoading(false);
-      return;
-    }
+  if (!selectedRole) {
+    setError("Please select a role")
+    setIsLoading(false)
+    return
+  }
 
-    
+  try {
     const result = await register({
       fullName: formData.fullName,
       email: formData.email,
       phone: formData.phone,
       password: formData.password,
-      role: selectedRole 
+      role: selectedRole,
     })
-    
-    if (result.success) {
-      toast({
-        title: "Account created!",
-        description: "Welcome to SparkleFind. Let's get started!",
-      });
 
-      switch (result.user.role) {
-        case 'customer':
-          router.push('/customer/dashboard')
-          break
-        case 'company_admin':
-          router.push('/company/dashboard')
-          break
-        case 'staff':
-          router.push('/staff/dashboard')
-          break
-        case 'admin':
-          router.push('/admin/dashboard')
-          break
-      }
-    } else {
-      setError(result.error || 'Registration failed')
+    if (!result.success) {
+      setError(result.error || "Registration failed")
       toast({
         variant: "destructive",
         title: "Registration failed",
         description: result.error || "Please try again",
-      });
+      })
+      setIsLoading(false)
+      return
     }
-    
-    setIsLoading(false); 
-  };
+
+    toast({
+      title: "Account created!",
+      description: "Welcome to SparkleFind. Let's get started!",
+    })
+
+    // Small delay to ensure cookie is set
+    await new Promise((resolve) => setTimeout(resolve, 100))
+
+    // Redirect based on role or optional redirect
+    if (redirectTo) {
+      router.push(redirectTo)
+    } else {
+      switch (result.user.role) {
+        case "customer":
+          router.push("/customer/dashboard")
+          break
+        case "company_admin":
+          router.push("/company/dashboard")
+          break
+        case "staff":
+          router.push("/staff/dashboard")
+          break
+        case "admin":
+          router.push("/admin/dashboard")
+          break
+        default:
+          router.push("/")
+      }
+    }
+
+    // Force reload to trigger middleware
+    router.refresh()
+  } catch (err) {
+    setError("Registration failed")
+    toast({
+      variant: "destructive",
+      title: "Registration failed",
+      description: "Please try again",
+    })
+  } finally {
+    setIsLoading(false)
+  }
+}
+
 
   return (
     <div className="min-h-screen flex">

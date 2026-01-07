@@ -9,7 +9,7 @@ import { useAuthContext } from "@/lib/contexts/AuthContext";
 
 export default function StaffHeader() {
   const router = useRouter();
-    const { checkAuth } = useAuthContext()
+    const {user, checkAuth } = useAuthContext()
 
   
    const handleLogout = async () => {
@@ -55,7 +55,7 @@ export default function StaffHeader() {
 
           <div className="flex items-center gap-3 pl-3 border-l">
             <div className="text-right">
-              <p className="text-sm font-medium text-gray-900">Mike Johnson</p>
+              <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
               <p className="text-xs text-gray-500">Staff</p>
             </div>
             <button className="p-2 hover:bg-gray-100 rounded-full">

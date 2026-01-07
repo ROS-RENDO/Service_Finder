@@ -1,8 +1,10 @@
+"use client"
 import { StatCard } from "@/components/ui/stat-card";
 import { DashboardCard } from "@/components/ui/dashboard-card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuthContext } from "@/lib/contexts/AuthContext";
 import {
   Calendar,
   Star,
@@ -53,11 +55,12 @@ const recentActivity = [
 ];
 
 export default function CustomerDashboard() {
+  const {user}= useAuthContext();
   return (
     <>
       {/* Header */}
       <div className="mb-8 animate-fade-in">
-        <h1 className="text-3xl font-bold">Welcome back, Sarah! 👋</h1>
+        <h1 className="text-3xl font-bold">Welcome back, {user?.fullName}! 👋</h1>
         <p className="mt-1 text-muted-foreground">
           Heres whats happening with your cleaning services
         </p>
