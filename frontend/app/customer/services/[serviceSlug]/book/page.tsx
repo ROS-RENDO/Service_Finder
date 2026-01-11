@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -319,6 +319,7 @@ export default function BookService() {
 
               {currentStep < 3 ? (
                 <Button
+
                   onClick={handleNext}
                   disabled={!canProceed()}
                   className="gap-2"
@@ -328,7 +329,7 @@ export default function BookService() {
                 </Button>
               ) : (
                 <Button
-      
+   
                   onClick={handleConfirm}
                   disabled={isLoading}
                   className="gap-2"

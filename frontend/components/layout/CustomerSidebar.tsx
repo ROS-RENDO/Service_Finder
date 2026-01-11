@@ -9,7 +9,7 @@ export default function CustomerSidebar() {
 
   const menuItems = [
     { href: '/customer/dashboard', icon: Home, label: 'Dashboard' },
-    { href: '/customer/companies', icon: Building2, label: 'Find Services' },
+    { href: '/customer/services', icon: Building2, label: 'Find Services' },
     { href: '/customer/bookings', icon: Calendar, label: 'My Bookings' },
     { href: '/customer/payments', icon: CreditCard, label: 'Payments' },
     { href: '/customer/reviews', icon: Star, label: 'My Reviews' },

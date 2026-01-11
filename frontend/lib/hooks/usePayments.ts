@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect , useCallback} from 'react'
 
 interface Payment {
   id: string
@@ -8,7 +8,12 @@ interface Payment {
   paidAt: string
   booking: {
     id: string
+    bookingDate: string
+    time: string
     service: {
+      name: string
+    }
+    company: {
       name: string
     }
   }
@@ -50,7 +55,11 @@ export function usePayments(options: UsePaymentsOptions = {}) {
       params.append('limit', limit.toString())
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        method: 'GET',
+        headers: { 
+          'Authorization': `Bearer ${token}` , 
+        'Content-Type': 'application/json'},
+        credentials: 'include'
       })
 
       if (response.ok) {
@@ -93,6 +102,31 @@ export function usePayments(options: UsePaymentsOptions = {}) {
       setLoading(false)
     }
   }
+  const getPaymentById = useCallback(async (id: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/${id}`, {
+        headers: { 
+          'Authorization': `Bearer ${token}`,
+          'Content-Type': 'application/json'
+        },
+        credentials: 'include'
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        return { success: true, payment: data.payment }
+      }
+      return { success: false, error: 'Payment not found' }
+    } catch (err) {
+      return { success: false, error: 'An error occurred' }
+    } finally {
+      setLoading(false)
+    }
+  }, [])
+
 
   return {
     payments,
@@ -100,6 +134,7 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     error,
     pagination,
     fetchPayments,
-    createPayment
+    getPaymentById,
+    createPayment,
   }
 }

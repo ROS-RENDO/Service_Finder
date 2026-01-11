@@ -1,13 +1,16 @@
 'use client'
-
 import Link from 'next/link'
-import { Bell, User, LogOut } from 'lucide-react'
+import { Bell, User, LogOut, MessageCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { useAuthContext } from '@/lib/contexts/AuthContext'
+import { conversations } from "@/data/mockData";
 import apiClient from '@/lib/api/client'
 
 export default function CustomerHeader() {
   const router = useRouter()
+  const totalUnread = conversations.reduce((acc, conv) => acc + conv.unreadCount, 0);
   const { user , checkAuth } = useAuthContext()
   
   const handleLogout = async () => {
@@ -47,6 +50,19 @@ export default function CustomerHeader() {
 
           {/* Profile Dropdown */}
           <div className="flex items-center gap-3 pl-3 border-l">
+          <Link href="/customer/messages">
+            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+              <MessageCircle className="h-5 w-5" />
+              {totalUnread > 0 && (
+                <Badge 
+                  className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-semibold bg-primary text-primary-foreground border-2 border-card animate-pulse-soft"
+                >
+                  {totalUnread}
+                </Badge>
+              )}
+            </Button>
+            
+          </Link>
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
               <p className="text-xs text-gray-500">Customer</p>

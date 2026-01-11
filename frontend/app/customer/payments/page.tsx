@@ -1,5 +1,5 @@
 "use client"
-import { useState, useMemo } from 'react';
+import { useState } from 'react';
 import Link from 'next/link';
 import { CreditCard, Calendar, Eye } from 'lucide-react';
 import { Button } from '@/components/ui/button';
@@ -9,17 +9,25 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { PageHeader } from '@/components/common/PageHeader';
 import { StatusBadge, StatusType } from '@/components/common/StatusBadge';
 import { EmptyState } from '@/components/common/EmptyState';
-import { payments } from '@/data/mockData';
+import { usePayments } from '@/lib/hooks/usePayments';
+import { LoadingCard } from '@/components/common/LoadingCard';
+import { ErrorMessage } from '@/components/common/ErrorMessage';
 
 type PaymentFilter = 'all' | 'paid' | 'pending' | 'failed';
 
 export default function PaymentsPage() {
   const [filterStatus, setFilterStatus] = useState<PaymentFilter>('all');
-
-  const filteredPayments = useMemo(() => {
-    if (filterStatus === 'all') return payments;
-    return payments.filter((payment) => payment.status === filterStatus);
-  }, [filterStatus]);
+    const [page, setPage] = useState(1)
+    const {
+    payments,
+    loading,
+    error,
+    pagination,
+  } = usePayments({
+    status: filterStatus === 'all' ? undefined : filterStatus,
+    page,
+    limit: 10,
+  })
 
   return (
     <div className="animate-fade-in">
@@ -43,8 +51,11 @@ export default function PaymentsPage() {
         </Select>
       </div>
 
+      {loading && <LoadingCard/>}
+      {error && <ErrorMessage message={error}/>}
+
       {/* Payments Table */}
-      {filteredPayments.length === 0 ? (
+      {!loading && payments.length === 0 ? (
         <EmptyState
           icon={CreditCard}
           title="No payments found"
@@ -65,7 +76,7 @@ export default function PaymentsPage() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {filteredPayments.map((payment, index) => (
+              {payments.map((payment, index) => (
                 <TableRow 
                   key={payment.id}
                   className="animate-slide-up"
@@ -74,8 +85,8 @@ export default function PaymentsPage() {
                   <TableCell className="font-medium">{payment.id}</TableCell>
                   <TableCell>
                     <div>
-                      <p className="font-medium">{payment.serviceName}</p>
-                      <p className="text-sm text-muted-foreground">{payment.bookingId}</p>
+                      <p className="font-medium">{payment.booking.service.name}</p>
+                      <p className="text-sm text-muted-foreground">{payment.booking.id}</p>
                     </div>
                   </TableCell>
                   <TableCell className="font-semibold text-primary">
@@ -85,7 +96,7 @@ export default function PaymentsPage() {
                   <TableCell>
                     <div className="flex items-center gap-1 text-sm">
                       <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                      {new Date(payment.date).toLocaleDateString()}
+                      {new Date(payment.paidAt).toLocaleDateString()}
                     </div>
                   </TableCell>
                   <TableCell>

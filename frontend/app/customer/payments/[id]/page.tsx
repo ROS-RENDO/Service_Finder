@@ -7,16 +7,33 @@ import { Card } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { PageHeader } from '@/components/common/PageHeader';
 import { StatusBadge, StatusType } from '@/components/common/StatusBadge';
-import { payments, bookings } from '@/data/mockData';
+import { usePayments } from '@/lib/hooks/usePayments';
 import { useToast } from '@/lib/hooks/use-toast';
 
-export default function PaymentDetailsPage() {
-  const { id } = useParams();
-  const { toast } = useToast();
-  
-  const payment = payments.find((p) => p.id === id);
-  const booking = payment ? bookings.find((b) => b.id === payment.bookingId) : null;
+import { useState, useEffect } from 'react';
+import { LoadingCard } from '@/components/common/LoadingCard';
 
+export default function PaymentDetailsPage() {
+  const params = useParams()
+  const id = params?.id as string | undefined
+   const [payment, setPayment] = useState<any>(null)
+  const { toast } = useToast();
+
+
+  const { getPaymentById, loading } = usePayments({ autoFetch: false })
+
+   useEffect(() => {
+    if (id) {
+      getPaymentById(id).then(res => {
+        if (res.success) {
+          setPayment(res.payment)
+        }
+      })
+    }
+  }, [id, getPaymentById])
+
+
+  if (loading) <LoadingCard/>
   if (!payment) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
@@ -72,10 +89,10 @@ export default function PaymentDetailsPage() {
                 Booking ID
               </span>
               <Link 
-                href={`/customer/bookings/${payment.bookingId}`}
+                href={`/customer/bookings/${payment.booking.id}`}
                 className="font-medium text-primary hover:underline"
               >
-                {payment.bookingId}
+                {payment.booking.id}
               </Link>
             </div>
             
@@ -97,7 +114,7 @@ export default function PaymentDetailsPage() {
                 Transaction Date
               </span>
               <span className="font-medium">
-                {new Date(payment.date).toLocaleDateString('en-US', {
+                {new Date(payment.booking.paidAt).toLocaleDateString('en-US', {
                   weekday: 'short',
                   year: 'numeric',
                   month: 'long',
@@ -125,22 +142,18 @@ export default function PaymentDetailsPage() {
             <div className="space-y-3">
               <div>
                 <p className="text-sm text-muted-foreground">Service</p>
-                <p className="font-medium">{payment.serviceName}</p>
+                <p className="font-medium">{payment.booking.service.name}</p>
               </div>
-              {booking && (
-                <>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Company</p>
-                    <p className="font-medium">{booking.companyName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">Service Date</p>
-                    <p className="font-medium">
-                      {new Date(booking.date).toLocaleDateString()} at {booking.time}
-                    </p>
-                  </div>
-                </>
-              )}
+              <div>
+                <p className="text-sm text-muted-foreground">Company</p>
+                <p className="font-medium">{payment.booking.company.name}</p>
+              </div>
+              <div>
+                <p className="text-sm text-muted-foreground">Service Date</p>
+                <p className="font-medium">
+                  {new Date(payment.booking.bookingDate).toLocaleDateString()} at {payment.booking.time}
+                </p>
+              </div>
             </div>
           </Card>
 

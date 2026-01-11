@@ -1,38 +1,62 @@
-"use client"
-import { useState, useMemo } from 'react';
-import Link from 'next/link';
-import { Calendar, Clock, MapPin, Plus, Eye } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
-import { PageHeader } from '@/components/common/PageHeader';
-import { StatusBadge } from '@/components/common/StatusBadge';
-import { EmptyState } from '@/components/common/EmptyState';
-import { bookings } from '@/data/mockData';
+"use client";
+import { useState, useMemo } from "react";
+import Link from "next/link";
+import { Calendar, Clock, MapPin, Plus, Eye } from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Card } from "@/components/ui/card";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table";
+import { PageHeader } from "@/components/common/PageHeader";
+import { StatusBadge } from "@/components/common/StatusBadge";
+import { EmptyState } from "@/components/common/EmptyState";
+import { bookings, payments } from "@/data/mockData";
+import { usePayments } from "@/lib/hooks/usePayments";
+import { useBookings } from "@/lib/hooks/useBookings";
+import { LoadingCard } from "@/components/common/LoadingCard";
+import { ErrorMessage } from "@/components/common/ErrorMessage";
 
-type FilterStatus = 'all' | 'upcoming' | 'past';
+type FilterStatus = "all" | "upcoming" | "past";
 
 export default function BookingsPage() {
-  const [filterStatus, setFilterStatus] = useState<FilterStatus>('all');
-
+  const [filterStatus, setFilterStatus] = useState<FilterStatus>("all");
+  const { bookings, loading, error, pagination } = useBookings({
+    autoFetch: true,
+    page: 1,
+    limit: 10,
+  });
   const filteredBookings = useMemo(() => {
     const today = new Date();
     today.setHours(0, 0, 0, 0);
 
     return bookings.filter((booking) => {
-      const bookingDate = new Date(booking.date);
-      
+      const bookingDate = new Date(booking.bookingDate);
+
       switch (filterStatus) {
-        case 'upcoming':
-          return bookingDate >= today && booking.status !== 'canceled' && booking.status !== 'completed';
-        case 'past':
-          return bookingDate < today || booking.status === 'completed' || booking.status === 'canceled';
+        case "upcoming":
+          return bookingDate >= today && booking.status !== "canceled";
+        case "past":
+          return bookingDate < today || booking.status === "completed";
         default:
           return true;
       }
     });
-  }, [filterStatus]);
+  }, [filterStatus, bookings]);
+
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorMessage message={error} />;
 
   return (
     <div className="animate-fade-in">
@@ -51,7 +75,10 @@ export default function BookingsPage() {
 
       {/* Filters */}
       <div className="mb-6 flex items-center gap-4">
-        <Select value={filterStatus} onValueChange={(value) => setFilterStatus(value as FilterStatus)}>
+        <Select
+          value={filterStatus}
+          onValueChange={(value) => setFilterStatus(value as FilterStatus)}
+        >
           <SelectTrigger className="w-40 bg-card">
             <SelectValue placeholder="Filter" />
           </SelectTrigger>
@@ -70,8 +97,8 @@ export default function BookingsPage() {
           title="No bookings found"
           description="You haven't made any bookings yet. Start by browsing our service providers."
           action={{
-            label: 'Browse Companies',
-            onClick: () => window.location.href = '/customer/companies',
+            label: "Browse Companies",
+            onClick: () => (window.location.href = "/customer/companies"),
           }}
         />
       ) : (
@@ -90,23 +117,23 @@ export default function BookingsPage() {
             </TableHeader>
             <TableBody>
               {filteredBookings.map((booking, index) => (
-                <TableRow 
-                  key={booking.id} 
+                <TableRow
+                  key={booking.id}
                   className="animate-slide-up"
                   style={{ animationDelay: `${index * 30}ms` }}
                 >
                   <TableCell className="font-medium">{booking.id}</TableCell>
-                  <TableCell>{booking.serviceName}</TableCell>
-                  <TableCell>{booking.companyName}</TableCell>
+                  <TableCell>{booking.service.name}</TableCell>
+                  <TableCell>{booking.company.name}</TableCell>
                   <TableCell>
                     <div className="flex flex-col">
                       <span className="flex items-center gap-1 text-sm">
                         <Calendar className="h-3.5 w-3.5 text-muted-foreground" />
-                        {new Date(booking.date).toLocaleDateString()}
+                        {new Date(booking.bookingDate).toLocaleDateString()}
                       </span>
                       <span className="flex items-center gap-1 text-sm text-muted-foreground">
                         <Clock className="h-3.5 w-3.5" />
-                        {booking.time}
+                        {booking.startTime}
                       </span>
                     </div>
                   </TableCell>

@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 export type StatusType = 'pending' | 'confirmed' | 'completed' | 'canceled' | 'paid' | 'failed';
 
 interface StatusBadgeProps {
-  status: StatusType;
+  status: StatusType | string;
   className?: string;
 }
 
@@ -17,7 +17,9 @@ const statusConfig: Record<StatusType, { label: string; className: string }> = {
 };
 
 export function StatusBadge({ status, className }: StatusBadgeProps) {
-  const config = statusConfig[status];
+  const safeStatus: StatusType =
+    status in statusConfig ? (status as StatusType) : 'pending';
+  const config = statusConfig[safeStatus];
 
   return (
     <span className={cn('status-badge', config.className, className)}>

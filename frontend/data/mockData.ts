@@ -71,6 +71,38 @@ export interface UserProfile {
   loyaltyPoints: number;
 }
 
+export interface Message {
+  id: string;
+  senderId: string;
+  text: string;
+  timestamp: Date;
+  isRead: boolean;
+}
+
+export interface Conversation {
+  id: string;
+  workerId: string;
+  lastMessage: string;
+  lastMessageTime: Date;
+  unreadCount: number;
+}
+
+export interface Worker {
+  id: string;
+  name: string;
+  avatar: string;
+  profession: string;
+  rating: number;
+  reviewCount: number;
+  hourlyRate: number;
+  location: string;
+  isOnline: boolean;
+  completedJobs: number;
+  responseTime: string;
+  about: string;
+  skills: string[];
+}
+
 export const categories = [
   'All Categories',
   'Cleaning',
@@ -266,7 +298,7 @@ export const bookings: Booking[] = [
 
 export const payments: Payment[] = [
   {
-    id: 'PAY001',
+    id: '1',
     bookingId: 'BK001',
     serviceName: 'Deep House Cleaning',
     amount: 150,
@@ -325,3 +357,120 @@ export const userProfile: UserProfile = {
   avatar: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=200&h=200&fit=crop',
   loyaltyPoints: 250,
 };
+
+export const workers: Worker[] = [
+  {
+    id: "1",
+    name: "James Wilson",
+    avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150&h=150&fit=crop&crop=face",
+    profession: "Professional Plumber",
+    rating: 4.9,
+    reviewCount: 127,
+    hourlyRate: 45,
+    location: "Brooklyn, NY",
+    isOnline: true,
+    completedJobs: 312,
+    responseTime: "Usually responds in 1 hour",
+    about: "Licensed plumber with 12+ years of experience. Specializing in residential and commercial plumbing repairs, installations, and emergency services. I take pride in quality work and customer satisfaction.",
+    skills: ["Pipe Repair", "Drain Cleaning", "Water Heater", "Fixture Installation", "Emergency Services"],
+  },
+  {
+    id: "2",
+    name: "Sarah Chen",
+    avatar: "https://images.unsplash.com/photo-1494790108377-be9c29b29330?w=150&h=150&fit=crop&crop=face",
+    profession: "Interior Designer",
+    rating: 4.8,
+    reviewCount: 89,
+    hourlyRate: 75,
+    location: "Manhattan, NY",
+    isOnline: false,
+    completedJobs: 156,
+    responseTime: "Usually responds in 2 hours",
+    about: "Award-winning interior designer transforming spaces for over 8 years. From cozy apartments to luxury penthouses, I bring your vision to life with attention to detail and timeless design.",
+    skills: ["Space Planning", "Color Consultation", "Furniture Selection", "Lighting Design", "3D Rendering"],
+  },
+  {
+    id: "3",
+    name: "Marcus Johnson",
+    avatar: "https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150&h=150&fit=crop&crop=face",
+    profession: "Electrician",
+    rating: 5.0,
+    reviewCount: 203,
+    hourlyRate: 55,
+    location: "Queens, NY",
+    isOnline: true,
+    completedJobs: 478,
+    responseTime: "Usually responds in 30 mins",
+    about: "Master electrician licensed and insured. Handling everything from simple outlet repairs to complete home rewiring. Safety and quality are my top priorities.",
+    skills: ["Wiring", "Panel Upgrades", "Lighting", "Smart Home", "Inspections"],
+  },
+];
+
+export const currentUserId = "user-1";
+
+export const conversations: Conversation[] = [
+  {
+    id: "conv-1",
+    workerId: "1",
+    lastMessage: "Thanks for reaching out! I can come by tomorrow afternoon.",
+    lastMessageTime: new Date(Date.now() - 1000 * 60 * 30),
+    unreadCount: 2,
+  },
+  {
+    id: "conv-2",
+    workerId: "3",
+    lastMessage: "The job is complete. Let me know if you need anything else!",
+    lastMessageTime: new Date(Date.now() - 1000 * 60 * 60 * 3),
+    unreadCount: 0,
+  },
+];
+
+export const messages: Record<string, Message[]> = {
+  "conv-1": [
+    {
+      id: "m1",
+      senderId: currentUserId,
+      text: "Hi James, I have a leaky faucet in my kitchen. Are you available this week?",
+      timestamp: new Date(Date.now() - 1000 * 60 * 60),
+      isRead: true,
+    },
+    {
+      id: "m2",
+      senderId: "1",
+      text: "Hello! Yes, I'd be happy to help with that. Can you describe the issue?",
+      timestamp: new Date(Date.now() - 1000 * 60 * 45),
+      isRead: true,
+    },
+    {
+      id: "m3",
+      senderId: currentUserId,
+      text: "It's been dripping constantly for about a week now. Getting worse.",
+      timestamp: new Date(Date.now() - 1000 * 60 * 40),
+      isRead: true,
+    },
+    {
+      id: "m4",
+      senderId: "1",
+      text: "Thanks for reaching out! I can come by tomorrow afternoon.",
+      timestamp: new Date(Date.now() - 1000 * 60 * 30),
+      isRead: false,
+    },
+  ],
+  "conv-2": [
+    {
+      id: "m5",
+      senderId: currentUserId,
+      text: "Hi Marcus, I need some outlets installed in my home office.",
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 5),
+      isRead: true,
+    },
+    {
+      id: "m6",
+      senderId: "3",
+      text: "The job is complete. Let me know if you need anything else!",
+      timestamp: new Date(Date.now() - 1000 * 60 * 60 * 3),
+      isRead: true,
+    },
+  ],
+};
+

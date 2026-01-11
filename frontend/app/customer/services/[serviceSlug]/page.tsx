@@ -1,15 +1,15 @@
 "use client"
 import { useState } from "react";
-import { useParams, useRouter } from "next/navigation";
 import Link from "next/link";
+import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import { Star, Clock, MapPin, Shield, Check, ChevronLeft, Calendar, Phone, Mail, ArrowRight } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
+import { ContactDialog } from "@/components/service/ContactDialog";
 import Image from "next/image";
-
 // Mock service data - in production, fetch from API
 const serviceData = {
   id: 1,
@@ -67,7 +67,7 @@ export default function ServiceDetails() {
   const { id } = useParams();
   const router = useRouter();
   const [selectedImage, setSelectedImage] = useState(0);
-
+  const [contactType, setContactType] = useState<"call" | "message" | null>(null);
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -97,9 +97,9 @@ export default function ServiceDetails() {
               >
                 <Image
                   src={serviceData.images[selectedImage]}
+                  alt={serviceData.name}
                   width={200}
                   height={200}
-                  alt={serviceData.name}
                   className="w-full h-[400px] object-cover"
                 />
               </motion.div>
@@ -114,7 +114,7 @@ export default function ServiceDetails() {
                       selectedImage === index ? "border-primary" : "border-transparent opacity-70 hover:opacity-100"
                     }`}
                   >
-                    <Image src={image} alt="" width={200} height={200} className="w-full h-full object-cover" />
+                    <Image width={200} height={200} src={image} alt="" className="w-full h-full object-cover" />
                   </button>
                 ))}
               </div>
@@ -179,10 +179,10 @@ export default function ServiceDetails() {
                     <div key={review.id} className="border-b border-border last:border-0 pb-6 last:pb-0">
                       <div className="flex items-start gap-4">
                         <Image
+                        width={200}
+                        height={200}
                           src={review.avatar}
                           alt={review.user}
-                          width={200}
-                          height={200}
                           className="w-12 h-12 rounded-full object-cover"
                         />
                         <div className="flex-1">
@@ -255,11 +255,21 @@ export default function ServiceDetails() {
                     </div>
                   </div>
                   <div className="flex gap-2">
-                    <Button variant="outline" size="sm" className="flex-1 gap-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-1"
+                      onClick={() => setContactType("call")}
+                    >
                       <Phone className="w-3 h-3" />
                       Call
                     </Button>
-                    <Button variant="outline" size="sm" className="flex-1 gap-1">
+                    <Button 
+                      variant="outline" 
+                      size="sm" 
+                      className="flex-1 gap-1"
+                      onClick={() => setContactType("message")}
+                    >
                       <Mail className="w-3 h-3" />
                       Message
                     </Button>
@@ -278,8 +288,8 @@ export default function ServiceDetails() {
                 </div>
 
                 {/* Book Button */}
-                <Button  className="w-full mb-4" asChild>
-                  <Link href={`/customer/companies/services/bookings/${serviceData.id}`}>
+                <Button className="w-full mb-4" asChild>
+                  <Link href={`${serviceData.id}/book/`}>
                     <Calendar className="w-5 h-5 mr-2" />
                     Book Now
                   </Link>
@@ -295,6 +305,14 @@ export default function ServiceDetails() {
       </main>
 
       <Footer />
+
+      {/* Contact Dialog */}
+      <ContactDialog
+        open={contactType !== null}
+        onOpenChange={(open) => !open && setContactType(null)}
+        type={contactType || "message"}
+        company={serviceData.company}
+      />
     </div>
   );
 }
