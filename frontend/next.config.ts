@@ -2,8 +2,12 @@ import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
   images: {
-    domains: ["images.unsplash.com"],
-  },
+  domains: [
+    'via.placeholder.com',
+    'res.cloudinary.com',
+    'images.unsplash.com',
+  ],
+},
 };
 
 export default nextConfig;

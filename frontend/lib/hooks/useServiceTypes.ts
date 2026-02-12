@@ -1,7 +1,6 @@
 // hooks/useServiceTypes.ts
 import { useState, useEffect } from 'react';
-
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000/api';
 
 interface ServiceType {
   id: string;

@@ -9,11 +9,8 @@ export interface Review {
   comment: string | null
   createdAt: string
 
-  customer: Pick<User, 'id' | 'fullName'>
-  booking: Pick<
-    Booking,
-    'id' | 'bookingDate'
-  > & {
+  customer: Pick<User, 'id' | 'fullName' | 'avatar'>
+  booking: Pick<Booking, 'id' | 'bookingDate' > & {
     service: {
       name: string
     }
@@ -22,6 +19,8 @@ export interface Review {
       name: string
     }
   }
+
+  timeAgo: string
 }
 
 export interface ReviewsResponse {

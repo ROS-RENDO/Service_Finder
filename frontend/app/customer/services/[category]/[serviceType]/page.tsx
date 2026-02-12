@@ -256,11 +256,11 @@ export default function CompaniesPage() {
                         <div className="group bg-card rounded-2xl overflow-hidden shadow-card hover:shadow-elevated transition-all duration-300 cursor-pointer">
                           {/* Cover Image */}
                           <div className="relative h-40 overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
-                            {company.coverImage && (
+                            {company.coverImageUrl && (
                               <Image
                                 width={600}
                                 height={300}
-                                src={company.coverImage}
+                                src={company.coverImageUrl}
                                 alt={company.name}
                                 className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-110"
                                 onError={(e) => {
@@ -271,12 +271,12 @@ export default function CompaniesPage() {
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
                             
                             {/* Logo */}
-                            {company.logo && (
+                            {company.logoUrl && (
                               <div className="absolute bottom-3 left-3">
                                 <Image
                                   width={56}
                                   height={56}
-                                  src={company.logo}
+                                  src={company.logoUrl}
                                   alt={company.name}
                                   className="w-14 h-14 rounded-xl object-cover border-2 border-white shadow-lg"
                                   onError={(e) => {
@@ -287,7 +287,7 @@ export default function CompaniesPage() {
                             )}
                             
                             {/* Verified Badge */}
-                            {company.verified && (
+                            {company.verificationStatus && (
                               <div className="absolute top-3 right-3">
                                 <Badge className="bg-white/90 text-primary gap-1">
                                   <Shield className="w-3 h-3" />
@@ -331,12 +331,12 @@ export default function CompaniesPage() {
                             </div>
 
                             {/* Highlights */}
-                            {company.highlights && company.highlights.length > 0 && (
+                            {company.Highlights && company.Highlights.length > 0 && (
                               <div className="flex flex-wrap gap-2 mb-4">
-                                {company.highlights.slice(0, 2).map((highlight, i) => (
+                                {company.Highlights.slice(0, 2).map((highlight, i) => (
                                   <Badge key={i} variant="secondary" className="text-xs">
                                     <CheckCircle2 className="w-3 h-3 mr-1" />
-                                    {highlight}
+                                    {highlight.label}
                                   </Badge>
                                 ))}
                               </div>

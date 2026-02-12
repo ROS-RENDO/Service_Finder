@@ -7,35 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
 import Image from 'next/image';
-
-interface Company {
-  id: string;
-  name: string;
-  description?: string;
-  city?: string;
-  rating?: number | null;
-  reviewCount?: number;
-  reviews?: number;
-  location?: string;
-  verified?: boolean;
-  yearsInBusiness?: number;
-  priceRange?: {
-    min: number;
-    max: number;
-  };
-  latitude?: number | null;
-  longitude?: number | null;
-  verificationStatus?: string;
-  servicesCount?: number;
-  logo?: string;
-  coverImage?: string;
-  highlights?: string[];
-  responseTime?: string;
-  coordinates?: {
-    lat: number;
-    lng: number;
-  };
-}
+import { Company } from '@/types/company.types';
 
 interface CompanyMapProps {
   companies: Company[];
@@ -56,7 +28,7 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
 
   // Filter companies that have valid coordinates
   const companiesWithCoords = companies.filter(
-    (c) => c.latitude != null && c.longitude != null
+    (c) => c.coordinates.latitude != null && c.coordinates.longitude != null
   );
 
   const saveToken = () => {
@@ -82,8 +54,8 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
     // Calculate center point from companies with coordinates
     let center: [number, number] = [-73.9857, 40.7484]; // Default NYC
     if (companiesWithCoords.length > 0) {
-      const avgLng = companiesWithCoords.reduce((sum, c) => sum + (c.longitude || 0), 0) / companiesWithCoords.length;
-      const avgLat = companiesWithCoords.reduce((sum, c) => sum + (c.latitude || 0), 0) / companiesWithCoords.length;
+      const avgLng = companiesWithCoords.reduce((sum, c) => sum + (c.coordinates.longitude || 0), 0) / companiesWithCoords.length;
+      const avgLat = companiesWithCoords.reduce((sum, c) => sum + (c.coordinates.latitude || 0), 0) / companiesWithCoords.length;
       center = [avgLng, avgLat];
     }
 
@@ -128,12 +100,12 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
 
     // Add markers for each company with coordinates
     companiesWithCoords.forEach((company) => {
-      if (!company.latitude || !company.longitude) return;
+      if (!company.coordinates.latitude || !company.coordinates.longitude) return;
 
       // Use coordinates from company object or from lat/lng fields
       const coords = company.coordinates || {
-        lat: company.latitude,
-        lng: company.longitude
+        lat: company.coordinates,
+        lng: company.coordinates
       };
 
       // Create custom marker element
@@ -150,14 +122,14 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
       el.addEventListener('click', () => {
         setSelectedCompany(company);
         map.current?.flyTo({
-          center: [coords.lng, coords.lat],
+          center: [coords.longitude, coords.latitude],
           zoom: 14,
           duration: 1000,
         });
       });
 
       const marker = new mapboxgl.Marker(el)
-        .setLngLat([coords.lng, coords.lat])
+        .setLngLat([coords.longitude, coords.latitude])
         .addTo(map.current!);
 
       markersRef.current.push(marker);
@@ -165,18 +137,18 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
 
     // Fit bounds to show all markers
     if (companiesWithCoords.length > 1 && map.current) {
-      const bounds = new mapboxgl.LngLatBounds();
-      companiesWithCoords.forEach(company => {
-        const coords = company.coordinates || (company.latitude && company.longitude ? {
-          lat: company.latitude,
-          lng: company.longitude
-        } : null);
-        if (coords) {
-          bounds.extend([coords.lng, coords.lat]);
-        }
-      });
-      map.current.fitBounds(bounds, { padding: 100, maxZoom: 13 });
+  const bounds = new mapboxgl.LngLatBounds();
+
+  companiesWithCoords.forEach(company => {
+    const coords = company.coordinates;
+    if (coords) {
+      bounds.extend([coords.longitude, coords.latitude]);
     }
+  });
+
+  map.current.fitBounds(bounds, { padding: 100, maxZoom: 13 });
+}
+
   }, [companies, isMapReady]);
 
   if (!mapboxToken) {
@@ -249,9 +221,9 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
           </button>
           
           <div className="flex gap-4">
-            {selectedCompany.logo ? (
+            {selectedCompany.logoUrl ? (
               <Image
-                src={selectedCompany.logo}
+                src={selectedCompany.logoUrl}
                 alt={selectedCompany.name}
                 width={64}
                 height={64}
@@ -287,9 +259,9 @@ export default function CompanyMap({ companies }: CompanyMapProps) {
                         ? selectedCompany.rating.toFixed(1) 
                         : selectedCompany.rating}
                     </span>
-                    {(selectedCompany.reviews || selectedCompany.reviewCount) && (
+                    {(selectedCompany.reviewCount) && (
                       <span className="text-muted-foreground">
-                        ({selectedCompany.reviews || selectedCompany.reviewCount})
+                        ({selectedCompany.reviewCount})
                       </span>
                     )}
                   </div>

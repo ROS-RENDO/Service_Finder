@@ -1,17 +1,10 @@
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
-import { useAuthContext } from "../contexts/AuthContext";
+
+import { User } from "@/types/user.types";
 
 type ApiResponse = { message: string; valid?: boolean };
 
-interface User {
-  id: string;
-  fullName: string;
-  email: string;
-  phone: string;
-  role: "customer" | "company_admin" | "staff" | "admin";
-  status: string;
-}
 
 interface AuthState {
   user: User | null;

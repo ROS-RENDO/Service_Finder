@@ -3,28 +3,31 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { DollarSign, TrendingUp, CreditCard, ArrowUpRight, Download, CheckCircle, Clock, XCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
-
-const stats = [
-  { label: "Total Revenue", value: "$12,450", change: "+12.5%", icon: DollarSign },
-  { label: "Pending Payments", value: "$1,280", change: "4 pending", icon: Clock },
-  { label: "This Month", value: "$4,850", change: "+8.2%", icon: TrendingUp },
-];
-
-const transactions = [
-  { id: "TXN-001", customer: "Sarah Johnson", service: "Deep Clean", date: "Dec 31, 2025", amount: "$180", status: "completed", method: "Credit Card" },
-  { id: "TXN-002", customer: "Mike Chen", service: "Regular Clean", date: "Dec 30, 2025", amount: "$95", status: "pending", method: "PayPal" },
-  { id: "TXN-003", customer: "Emily Davis", service: "Move-out Clean", date: "Dec 29, 2025", amount: "$320", status: "completed", method: "Credit Card" },
-  { id: "TXN-004", customer: "James Wilson", service: "Office Clean", date: "Dec 28, 2025", amount: "$250", status: "completed", method: "Bank Transfer" },
-  { id: "TXN-005", customer: "Lisa Brown", service: "Regular Clean", date: "Dec 27, 2025", amount: "$95", status: "failed", method: "Credit Card" },
-];
+import { usePayments } from "@/lib/hooks/usePayments";
 
 const statusConfig = {
-  completed: { label: "Completed", icon: CheckCircle, color: "text-green-600 bg-green-100" },
+  paid: { label: "Paid", icon: CheckCircle, color: "text-green-600 bg-green-100" },
   pending: { label: "Pending", icon: Clock, color: "text-yellow-600 bg-yellow-100" },
   failed: { label: "Failed", icon: XCircle, color: "text-red-600 bg-red-100" },
+  refunded: { label: "Refunded", icon: XCircle, color: "text-muted-foreground bg-muted" },
 };
 
 export default function Payments() {
+  const { payments, loading, error, fetchPayments } = usePayments({ autoFetch: true });
+
+  const totalRevenue = payments
+    .filter((p) => p.status === "paid")
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+  const pendingTotal = payments
+    .filter((p) => p.status === "pending")
+    .reduce((sum, p) => sum + Number(p.amount), 0);
+
+  const stats = [
+    { label: "Total Revenue", value: `$${totalRevenue.toFixed(2)}`, change: "", icon: DollarSign },
+    { label: "Pending Payments", value: `$${pendingTotal.toFixed(2)}`, change: "", icon: Clock },
+    { label: "Total Payments", value: String(payments.length), change: "", icon: TrendingUp },
+  ];
+
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -38,7 +41,6 @@ export default function Payments() {
           </Button>
         </div>
 
-        {/* Stats */}
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
           {stats.map((stat) => (
             <Card key={stat.label} className="stat-card">
@@ -61,7 +63,6 @@ export default function Payments() {
           ))}
         </div>
 
-        {/* Transactions */}
         <Card>
           <CardHeader className="flex flex-row items-center justify-between">
             <CardTitle>Recent Transactions</CardTitle>
@@ -80,32 +81,63 @@ export default function Payments() {
                   </tr>
                 </thead>
                 <tbody>
-                  {transactions.map((tx) => {
-                    const status = statusConfig[tx.status as keyof typeof statusConfig];
-                    return (
-                      <tr key={tx.id} className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors">
-                        <td className="p-4">
-                          <p className="font-medium">{tx.id}</p>
-                          <p className="text-sm text-muted-foreground">{tx.date}</p>
-                        </td>
-                        <td className="p-4">{tx.customer}</td>
-                        <td className="p-4 text-muted-foreground">{tx.service}</td>
-                        <td className="p-4">
-                          <div className="flex items-center gap-2">
-                            <CreditCard className="h-4 w-4 text-muted-foreground" />
-                            <span className="text-sm">{tx.method}</span>
-                          </div>
-                        </td>
-                        <td className="p-4">
-                          <Badge variant="outline" className={`gap-1 ${status.color}`}>
-                            <status.icon className="h-3 w-3" />
-                            {status.label}
-                          </Badge>
-                        </td>
-                        <td className="p-4 text-right font-medium">{tx.amount}</td>
-                      </tr>
-                    );
-                  })}
+                  {loading && (
+                    <tr>
+                      <td className="p-4 text-sm text-muted-foreground" colSpan={6}>
+                        Loading payments...
+                      </td>
+                    </tr>
+                  )}
+                  {error && !loading && (
+                    <tr>
+                      <td className="p-4 text-sm text-destructive" colSpan={6}>
+                        Failed to load payments.{" "}
+                        <button
+                          type="button"
+                          className="underline underline-offset-2"
+                          onClick={fetchPayments}
+                        >
+                          Retry
+                        </button>
+                      </td>
+                    </tr>
+                  )}
+                  {!loading &&
+                    !error &&
+                    payments.map((tx) => {
+                      const status = statusConfig[tx.status as keyof typeof statusConfig];
+                      const bookingDate = new Date(tx.booking.bookingDate);
+                      return (
+                        <tr
+                          key={tx.id}
+                          className="border-b border-border last:border-0 hover:bg-muted/30 transition-colors"
+                        >
+                          <td className="p-4">
+                            <p className="font-medium">{tx.id}</p>
+                            <p className="text-sm text-muted-foreground">
+                              {bookingDate.toLocaleDateString()}
+                            </p>
+                          </td>
+                          <td className="p-4">{tx.user.fullName}</td>
+                          <td className="p-4 text-muted-foreground">{tx.booking.service.name}</td>
+                          <td className="p-4">
+                            <div className="flex items-center gap-2">
+                              <CreditCard className="h-4 w-4 text-muted-foreground" />
+                              <span className="text-sm">{tx.method}</span>
+                            </div>
+                          </td>
+                          <td className="p-4">
+                            <Badge variant="outline" className={`gap-1 ${status.color}`}>
+                              <status.icon className="h-3 w-3" />
+                              {status.label}
+                            </Badge>
+                          </td>
+                          <td className="p-4 text-right font-medium">
+                            ${Number(tx.amount).toFixed(2)}
+                          </td>
+                        </tr>
+                      );
+                    })}
                 </tbody>
               </table>
             </div>

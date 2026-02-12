@@ -30,131 +30,23 @@ import { ContactDialog } from "@/components/service/ContactDialog";
 import { useServices } from "@/lib/hooks/useServices";
 import { useReviews } from "@/lib/hooks/useReviews";
 import { useCompanies } from "@/lib/hooks/useCompanies";
+import { Service } from "@/types/service.types";
+import { Company } from "@/types/company.types";
 
-interface Highlight {
-  icon: keyof typeof highlightIconsMap; // "Shield" | "Star" | ...
-  label: string;
-}
-
-interface Service {
-  id: string;
-}
-
-interface Company {
-  id: string;
-  name: string;
-  description?: string;
-  city?: string;
-  location?: string;
-  Highlights?: Highlight[];
-  address?: string;
-  phone?: string;
-  email?: string;
-  verificationStatus: string;
-  logo?: string;
-  coverImage?: string;
-  rating?: number;
-  reviewCount?: number;
-  service?: Service[];
-  yearsInBusiness?: number;
-  employeeCount?: number;
-  ratingSummary?: {
-    averageRating: string;
-    totalReviews: number;
-  };
-}
-
-// Mock company data - in real app, fetch based on id
 const companyData = {
-  id: 1,
-  name: "Sparkle Home Services",
-  logo: "https://images.unsplash.com/photo-1560179707-f14e90ef3623?q=80&w=200",
-  coverImage:
-    "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=1200",
-  rating: 4.9,
-  reviewCount: 324,
-  location: "Downtown & Surrounding Areas",
-  address: "123 Clean Street, Downtown City, ST 12345",
-  verified: true,
-  yearsInBusiness: 8,
-  employeeCount: 45,
-  phone: "+1 (555) 123-4567",
-  email: "hello@sparklehome.com",
-  description:
-    "Sparkle Home Services has been providing premium cleaning solutions since 2016. Our team of trained professionals uses eco-friendly products and cutting-edge techniques to deliver spotless results every time. We're committed to customer satisfaction and environmental responsibility.",
-  highlights: [
-    { icon: Shield, label: "Fully Insured & Bonded" },
-    { icon: Award, label: "Top Rated 2024" },
-    { icon: Users, label: "Background Checked Staff" },
-    { icon: Heart, label: "Satisfaction Guarantee" },
-  ],
   gallery: [
     "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=600",
     "https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=600",
     "https://images.unsplash.com/photo-1584820927498-cfe5211fd8bf?q=80&w=600",
     "https://images.unsplash.com/photo-1527515637462-cff94eecc1ac?q=80&w=600",
   ],
-  services: [
-    {
-      id: 1,
-      name: "Standard Home Cleaning",
-      description:
-        "Regular maintenance cleaning for your home including dusting, vacuuming, and mopping.",
-      price: 85,
-      duration: "2-3 hours",
-      category: "Residential",
-      image:
-        "https://images.unsplash.com/photo-1581578731548-c64695cc6952?q=80&w=400",
-      popular: true,
-      features: [
-        "All rooms cleaned",
-        "Kitchen & bath sanitized",
-        "Floors mopped",
-      ],
-    },
-  ],
-  reviews: [
-    {
-      id: 1,
-      user: "Sarah M.",
-      avatar:
-        "https://images.unsplash.com/photo-1494790108377-be9c29b29330?q=80&w=100",
-      rating: 5,
-      date: "2 weeks ago",
-      service: "Deep Cleaning",
-      comment:
-        "Absolutely amazing service! My apartment has never looked cleaner. The team was professional, punctual, and incredibly thorough. Will definitely book again!",
-    },
-    {
-      id: 2,
-      user: "James L.",
-      avatar:
-        "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?q=80&w=100",
-      rating: 5,
-      date: "1 month ago",
-      service: "Standard Home Cleaning",
-      comment:
-        "I've tried several cleaning services and this is by far the best. They pay attention to every detail and the eco-friendly products smell great!",
-    },
-    {
-      id: 3,
-      user: "Emily R.",
-      avatar:
-        "https://images.unsplash.com/photo-1438761681033-6461ffad8d80?q=80&w=100",
-      rating: 5,
-      date: "1 month ago",
-      service: "Move-Out Cleaning",
-      comment:
-        "They helped me get my full deposit back! The team was efficient and left my old apartment spotless. Highly recommend for anyone moving.",
-    },
-  ],
 };
-const highlightIconsMap: Record<string, any> = {
+const highlightIconsMap = {
   Shield,
   Star,
   UserCheck,
   ThumbsUp,
-};
+} as const;
 
 export default function CompanyDetailPage() {
   const params = useParams();
@@ -241,8 +133,8 @@ export default function CompanyDetailPage() {
           <Image
             width={1200}
             height={400}
-            src={companyData.coverImage}
-            alt={companyData.name}
+            src={company?.coverImageUrl || ""}
+            alt={company?.name || ""}
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -275,7 +167,7 @@ export default function CompanyDetailPage() {
                   <Image
                     width={128}
                     height={128}
-                    src={company?.logo || ""}
+                    src={company?.logoUrl || ""}
                     alt={company?.name || ""}
                     className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover border-4 border-background shadow-lg"
                   />
@@ -345,21 +237,24 @@ export default function CompanyDetailPage() {
 
               {/* Highlights */}
               <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-6 pt-6 border-t border-border">
-                {company?.Highlights?.map(
-                  (highlight: Highlight, index: number) => {
-                    const Icon = highlightIconsMap[highlight.icon]; // get the React component
+                {company?.Highlights &&
+                  company.Highlights.length > 0 &&
+                  company.Highlights.map((highlight, index) => {
+                    const Icon = highlightIconsMap[highlight.icon];
+
+                    if (!Icon) return null;
+
                     return (
                       <div key={index} className="flex items-center gap-3">
                         <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                          {Icon && <Icon className="w-5 h-5 text-primary" />}
+                          <Icon className="w-5 h-5 text-primary" />
                         </div>
-                        <span className="text-sm font-medium text-foreground">
+                        <span className="text-sm font-medium">
                           {highlight.label}
                         </span>
                       </div>
                     );
-                  },
-                )}
+                  })}
               </div>
             </motion.div>
           </div>
@@ -381,7 +276,7 @@ export default function CompanyDetailPage() {
                 </p>
               </div>
               <Badge variant="secondary" className="text-sm">
-                {company?.service?.length} services available
+                {services.length} services available
               </Badge>
             </div>
 
@@ -442,7 +337,7 @@ export default function CompanyDetailPage() {
 
                       {/* Features */}
                       <div className="space-y-1.5 mb-4">
-                        {service.features?.map((feature, i) => (
+                        {service.features?.map((feature: any, i: any) => (
                           <div
                             key={i}
                             className="flex items-center gap-2 text-sm text-muted-foreground"
@@ -469,7 +364,8 @@ export default function CompanyDetailPage() {
                           {((service.durationMin ?? 0) / 60).toFixed(1)}
                           {service.durationMax && service.durationMax > 0
                             ? ` - ${((service.durationMax ?? 0) / 60).toFixed(1)}`
-                            : ""} hr
+                            : ""}{" "}
+                          hr
                         </div>
                       </div>
 
@@ -612,7 +508,7 @@ export default function CompanyDetailPage() {
               </h2>
               <p className="text-white/80 mb-6 max-w-xl mx-auto">
                 Book any of our services today and experience the{" "}
-                {companyData.name} difference. Satisfaction guaranteed!
+                {company?.name} difference. Satisfaction guaranteed!
               </p>
               <div className="flex flex-wrap justify-center gap-4">
                 <Button
@@ -648,10 +544,10 @@ export default function CompanyDetailPage() {
         onOpenChange={(open) => !open && setContactType(null)}
         type={contactType || "message"}
         company={{
-          name: companyData.name,
-          logo: companyData.logo,
-          phone: companyData.phone,
-          email: companyData.email,
+          name: company?.name || "",
+          logo: company?.logoUrl,
+          phone: company?.phone,
+          email: company?.email,
         }}
       />
     </div>

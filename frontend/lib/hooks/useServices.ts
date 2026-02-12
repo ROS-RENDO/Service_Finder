@@ -1,46 +1,5 @@
 import { useState, useEffect } from 'react'
-
-interface ServiceType {
-  id: string;
-  categoryId: string;
-  name: string;
-  slug: string;
-  description?: string;
-  icon?: string;
-  image?: string;
-  status?: string;
-  displayOrder?: number;
-  createdAt?: string;
-  updatedAt?: string;
-  category?: {
-    id: string;
-    name: string;
-    slug: string;
-    description?: string;
-    icon?: string;
-    status?: string;
-    displayOrder?: number;
-    createdAt?: string;
-    updatedAt?: string;
-  };
-}
-
-interface Service {
-  id: string;
-  companyId: string;
-  serviceTypeId: string;
-  name: string;
-  image?: string;
-  description?: string;
-  basePrice?: string | number;
-  features?: string[];
-  durationMin?: number;
-  durationMax?: number;
-  isActive: boolean;
-  createdAt?: string;
-  updatedAt?: string;
-  serviceType?: ServiceType;
-}
+import { Service } from '@/types/service.types';
 
 
 interface UseServicesOptions {
@@ -71,30 +30,37 @@ export function useServices(options: UseServicesOptions = {}) {
   }, [page, companyId, categoryId, isActive])
 
   const fetchServices = async () => {
-    setLoading(true)
-    setError(null)
-    try {
-      const params = new URLSearchParams()
-      if (companyId) params.append('companyId', companyId)
-      if (categoryId) params.append('categoryId', categoryId)
-      if (isActive !== undefined) params.append('isActive', isActive.toString())
-      params.append('page', page.toString())
-      params.append('limit', limit.toString())
+  setLoading(true)
+  setError(null)
+  try {
+    const params = new URLSearchParams()
+    if (companyId) params.append('companyId', companyId)
+    if (categoryId) params.append('categoryId', categoryId)
+    if (isActive !== undefined) params.append('isActive', isActive.toString())
+    params.append('page', page.toString())
+    params.append('limit', limit.toString())
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services?${params}`)
-      if (response.ok) {
-        const data = await response.json()
-        setServices(data.services)
-        setPagination(data.pagination)
-      } else {
-        setError('Failed to fetch services')
-      }
-    } catch (err) {
-      setError('An error occurred')
-    } finally {
-      setLoading(false)
+    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services?${params}`)
+    if (response.ok) {
+      const result = await response.json()
+      setServices(result.data || [])  // ← Add fallback here
+      setPagination(result.pagination || {
+        total: 0,
+        page: 1,
+        limit: 10,
+        pages: 0
+      })
+    } else {
+      setError('Failed to fetch services')
+      setServices([])  // ← Reset to empty array on error
     }
+  } catch (err) {
+    setError('An error occurred')
+    setServices([])  // ← Reset to empty array on error
+  } finally {
+    setLoading(false)
   }
+}
 
   const getServiceById = async (id: string) => {
     setLoading(true)

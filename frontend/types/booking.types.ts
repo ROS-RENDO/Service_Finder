@@ -1,40 +1,51 @@
-import { User } from './user.types'
-import { Company } from './company.types'
-import { Service } from './service.types'
-import { Payment } from './payment.type'
-import { Review } from './review.types'
+import { Service } from "./service.types";
+import { Payment } from "./payment.type";
+import { Company } from "./company.types";
+import { User } from "./user.types";
+export type BookingStatus =
+  | "pending"
+  | "confirmed"
+  | "in_progress"
+  | "completed"
+  | "cancelled";
 
-export type BookingStatus = 'pending' | 'confirmed' | 'completed' | 'cancelled'
-
-export interface Booking {
-  id: string
-  customerId: string
-  companyId: string
-  serviceId: string
-  bookingDate: string
-  startTime: string
-  endTime: string
-  serviceAddress: string
-  latitude: string
-  longitude: string
-  status: BookingStatus
-  totalPrice: string
-  createdAt: string
-  updatedAt: string
-
-  customer: User
-  company: Pick<Company, 'id' | 'name' | 'phone' | 'email'>
-  service: Pick<Service, 'id' | 'name' | 'basePrice' | 'durationMinutes'>
-  payment: Payment | null
-  review: Review | null
+export interface BookingStatusLog {
+  id: string;
+  bookingId: string;
+  oldStatus: BookingStatus | null;
+  newStatus: BookingStatus;
+  changedBy: string;
+  changedAt: string;
 }
 
-export interface BookingsResponse {
-  bookings: Booking[]
-  pagination: {
-    total: number
-    page: number
-    limit: number
-    pages: number
-  }
+export interface Booking {
+  id: string;
+  customerId: string;
+  companyId: string;
+  serviceId: string;
+  bookingDate: string;
+  startTime: string;
+  endTime: string;
+  serviceAddress: string;
+  latitude: number | null;
+  longitude: number | null;
+  status: BookingStatus;
+  totalPrice: string;
+  platformFee: string | number;
+  companyEarnings: string | number;
+  createdAt: string;
+  updatedAt: string;
+  customer: Pick<User, "id" | "fullName" | "email" | "phone">;
+  company: Pick<Company, "id" | "name" | "phone" | "email">;
+  service: Service;
+  payment: Payment | null;
+  review: any | null;
+  cancellation: any | null;
+  statusLogs: BookingStatusLog[];
+}
+
+// full API response
+export interface BookingResponse {
+  success: boolean;
+  booking: Booking;
 }

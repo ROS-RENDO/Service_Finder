@@ -1,6 +1,7 @@
 "use client"
 import { useState, useEffect } from "react";
 import Link from "next/link";
+import { Service } from "@/types/service.types";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
@@ -33,20 +34,7 @@ const timeSlots = [
   "23:00", "00:00"
 ];
 
-interface Service {
-  id: string;
-  name: string;
-  description: string;
-  basePrice: number;
-  durationMin: number;
-  categoryId: string;
-  companyId: string;
-  isActive: boolean;
-  company?: {
-    id: string;
-    name: string;
-  };
-}
+
 
 export default function BookService() {
   const params = useParams();
@@ -260,7 +248,7 @@ export default function BookService() {
     );
   }
 
-  const platformFee = 5;
+  const platformFee = service.platformFee ;
   const totalPrice = service.basePrice + platformFee;
 
   return (

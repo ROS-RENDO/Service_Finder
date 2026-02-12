@@ -1,45 +1,25 @@
-import { Booking } from './booking.types'
-import { User } from './user.types'
+import { Booking } from "./booking.types";
+import { User } from "./user.types";
 
-export type PaymentStatus = 'pending' | 'completed' | 'failed'
+export type PaymentMethod = 'card' | 'cash' | 'wallet' ;
+export type PaymentStatus = 'pending' | 'paid' | 'failed' | 'refunded'
 
 export interface Payment {
-  id: string
-  bookingId: string
-  userId: string
-  method: string
-  amount: string
-  currency: string
-  status: PaymentStatus
-  transactionRef: string
-  paidAt: string | null
+  id: string;
+  bookingId: string;
+  userId: string;
+  method: PaymentMethod;
+  amount: string;
+  currency: string;
+  status: PaymentStatus;
+  transactionRef: string;
+  paidAt: string;
 
-  booking: Pick<
-    Booking,
-    | 'id'
-    | 'customerId'
-    | 'companyId'
-    | 'serviceId'
-    | 'bookingDate'
-    | 'startTime'
-    | 'endTime'
-    | 'serviceAddress'
-    | 'latitude'
-    | 'longitude'
-    | 'status'
-    | 'totalPrice'
-    | 'createdAt'
-    | 'updatedAt'
-  > & {
-    service: {
-      name: string
-    }
-    company: {
-      name: string
-    }
-  }
-
-  user: Pick<User, 'id' | 'fullName' | 'email'>
+  booking: Booking;
+  user: Pick<User, 'id' | 'fullName' | 'email' >;
+  
+  createdAt?: string;
+  updatedAt?: string;
 }
 
 export interface PaymentsResponse {

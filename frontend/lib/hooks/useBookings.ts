@@ -1,177 +1,185 @@
-import { useState, useEffect } from 'react'
-
-interface Booking {
-  id: string
-  status: string
-  bookingDate: string
-  startTime: string
-  endTime: string
-  totalPrice: string
-  service: {
-    name: string
-  }
-  company: {
-    name: string
-  }
-}
+import { useState, useEffect } from "react";
+import { Booking } from "@/types/booking.types";
 
 interface UseBookingsOptions {
-  autoFetch?: boolean
-  status?: string
-  companyId?: string
-  customerId?: string
-  page?: number
-  limit?: number
+  autoFetch?: boolean;
+  status?: string;
+  companyId?: string;
+  customerId?: string;
+  page?: number;
+  limit?: number;
 }
 
 export function useBookings(options: UseBookingsOptions = {}) {
-  const { autoFetch = true, status, companyId, customerId, page = 1, limit = 10 } = options
-  const [bookings, setBookings] = useState<Booking[]>([])
-  const [loading, setLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const {
+    autoFetch = true,
+    status,
+    companyId,
+    customerId,
+    page = 1,
+    limit = 10,
+  } = options;
+  const [bookings, setBookings] = useState<Booking[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
   const [pagination, setPagination] = useState({
     total: 0,
     page: 1,
     limit: 10,
-    pages: 0
-  })
+    pages: 0,
+  });
 
   useEffect(() => {
     if (autoFetch) {
-      fetchBookings()
+      fetchBookings();
     }
-  }, [page, status, companyId, customerId])
+  }, [page, status, companyId, customerId]);
 
   const fetchBookings = async () => {
-    setLoading(true)
-    setError(null)
+    setLoading(true);
+    setError(null);
     try {
-      const token = localStorage.getItem('token')
-      const params = new URLSearchParams()
-      if (status) params.append('status', status)
-      if (companyId) params.append('companyId', companyId)
-      if (customerId) params.append('customerId', customerId)
-      params.append('page', page.toString())
-      params.append('limit', limit.toString())
+      const token = localStorage.getItem("token");
+      const params = new URLSearchParams();
+      if (status) params.append("status", status);
+      if (companyId) params.append("companyId", companyId);
+      if (customerId) params.append("customerId", customerId);
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings?${params}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        method: 'GET',
-        credentials: 'include',
-      })
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/bookings?${params}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          method: "GET",
+          credentials: "include",
+        },
+      );
 
       if (response.ok) {
-        const data = await response.json()
-        setBookings(data.bookings)
-        setPagination(data.pagination)
+        const data = await response.json();
+        setBookings(data.bookings);
+        setPagination(data.pagination);
       } else {
-        setError('Failed to fetch bookings')
+        setError("Failed to fetch bookings");
       }
     } catch (err) {
-      setError('An error occurred')
+      setError("An error occurred");
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const getBookingById = async (id: string) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` },
-        credentials: 'include'
-      })
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}`,
+        {
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        },
+      );
       if (response.ok) {
-        const data = await response.json()
-        return { success: true, booking: data.booking }
+        const data = await response.json();
+        return { success: true, booking: data.booking };
       }
-      return { success: false, error: 'Booking not found' }
+      return { success: false, error: "Booking not found" };
     } catch (err) {
-      return { success: false, error: 'An error occurred' }
+      return { success: false, error: "An error occurred" };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const createBooking = async (bookingData: any) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/bookings`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+          body: JSON.stringify(bookingData),
         },
-        credentials: 'include',
-        body: JSON.stringify(bookingData)
-      })
+      );
 
       if (response.ok) {
-        const data = await response.json()
-        fetchBookings()
-        return { success: true, booking: data.booking }
+        const data = await response.json();
+        fetchBookings();
+        return { success: true, booking: data.data || data.booking };
       }
-      console.log(response)
-      const error = await response.json()
-      return { success: false, error: error.error }
+      console.log(response);
+      const error = await response.json();
+      return { success: false, error: error.error };
     } catch (err) {
-      return { success: false, error: 'Failed to create booking' }
+      return { success: false, error: "Failed to create booking" };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const updateBookingStatus = async (id: string, status: string) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}/status`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}/status`,
+        {
+          method: "PATCH",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ status }),
         },
-        body: JSON.stringify({ status })
-      })
+      );
 
       if (response.ok) {
-        fetchBookings()
-        return { success: true }
+        fetchBookings();
+        return { success: true };
       }
-      return { success: false, error: 'Failed to update status' }
+      return { success: false, error: "Failed to update status" };
     } catch (err) {
-      return { success: false, error: 'An error occurred' }
+      return { success: false, error: "An error occurred" };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   const cancelBooking = async (id: string, reason: string) => {
-    setLoading(true)
+    setLoading(true);
     try {
-      const token = localStorage.getItem('token')
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}`, {
-        method: 'DELETE',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}`,
+        {
+          method: "DELETE",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({ reason }),
         },
-        body: JSON.stringify({ reason })
-      })
+      );
 
       if (response.ok) {
-        fetchBookings()
-        return { success: true }
+        fetchBookings();
+        return { success: true };
       }
-      return { success: false, error: 'Failed to cancel booking' }
+      return { success: false, error: "Failed to cancel booking" };
     } catch (err) {
-      return { success: false, error: 'An error occurred' }
+      return { success: false, error: "An error occurred" };
     } finally {
-      setLoading(false)
+      setLoading(false);
     }
-  }
+  };
 
   return {
     bookings,
@@ -182,6 +190,6 @@ export function useBookings(options: UseBookingsOptions = {}) {
     getBookingById,
     createBooking,
     updateBookingStatus,
-    cancelBooking
-  }
+    cancelBooking,
+  };
 }

@@ -1,5 +1,6 @@
 "use client"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { useEffect, useState } from "react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Plus, MapPin, MoreVertical, CheckCircle } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -18,16 +19,41 @@ import {
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { useCompanies } from "@/lib/hooks/useCompanies";
 
-const areas = [
-  { id: 1, name: "Manhattan", zipCodes: ["10001", "10002", "10003", "10004", "10005"], status: "active", bookings: 45 },
-  { id: 2, name: "Brooklyn", zipCodes: ["11201", "11215", "11217", "11238"], status: "active", bookings: 32 },
-  { id: 3, name: "Queens", zipCodes: ["11101", "11102", "11103"], status: "active", bookings: 18 },
-  { id: 4, name: "Bronx", zipCodes: ["10451", "10452", "10453"], status: "inactive", bookings: 0 },
-  { id: 5, name: "Staten Island", zipCodes: ["10301", "10302"], status: "active", bookings: 8 },
-];
+type ServiceArea = {
+  city: string;
+  coverageRadiusKm: number;
+};
 
 export default function Areas() {
+  const [serviceAreas, setServiceAreas] = useState<ServiceArea[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const { getCompanyById } = useCompanies({ autoFetch: false });
+
+  useEffect(() => {
+    const storedCompanyId =
+      typeof window !== "undefined" ? localStorage.getItem("companyId") : null;
+    if (!storedCompanyId) return;
+
+    const loadCompany = async () => {
+      setLoading(true);
+      setError(null);
+      const result = await getCompanyById(storedCompanyId);
+      if (result.success && result.company) {
+        const company: any = result.company;
+        setServiceAreas(company.serviceAreas || []);
+      } else {
+        setError(result.error || "Failed to load company service areas");
+      }
+      setLoading(false);
+    };
+
+    loadCompany();
+  }, [getCompanyById]);
+
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -61,48 +87,41 @@ export default function Areas() {
           </Dialog>
         </div>
 
+        {loading && (
+          <p className="text-sm text-muted-foreground">Loading service areas...</p>
+        )}
+        {error && !loading && (
+          <p className="text-sm text-destructive">{error}</p>
+        )}
+
+        {!loading && !error && (
         <div className="grid gap-4">
-          {areas.map((area) => (
-            <Card key={area.id} className="hover:shadow-md transition-shadow">
+          {serviceAreas.map((area, index) => (
+            <Card key={index} className="hover:shadow-md transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                    <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
+                      <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
                       <MapPin className="h-6 w-6 text-accent-foreground" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-lg">{area.name}</h3>
-                        <Badge variant={area.status === 'active' ? 'default' : 'secondary'}>
-                          {area.status === 'active' ? (
+                        <h3 className="font-semibold text-lg">{area.city}</h3>
+                        <Badge variant="default">
                             <>
                               <CheckCircle className="h-3 w-3 mr-1" />
                               Active
                             </>
-                          ) : (
-                            'Inactive'
-                          )}
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
-                        {area.bookings} bookings this month
+                        Coverage radius: {area.coverageRadiusKm} km
                       </p>
                     </div>
                   </div>
 
                   <div className="flex items-center gap-4">
-                    <div className="hidden md:flex flex-wrap gap-1.5 max-w-xs">
-                      {area.zipCodes.slice(0, 4).map((zip) => (
-                        <span key={zip} className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded">
-                          {zip}
-                        </span>
-                      ))}
-                      {area.zipCodes.length > 4 && (
-                        <span className="px-2 py-1 bg-muted text-muted-foreground text-xs rounded">
-                          +{area.zipCodes.length - 4} more
-                        </span>
-                      )}
-                    </div>
+                    <div className="hidden md:flex flex-wrap gap-1.5 max-w-xs" />
                     <DropdownMenu>
                       <DropdownMenuTrigger asChild>
                         <Button variant="ghost" size="icon">
@@ -112,9 +131,7 @@ export default function Areas() {
                       <DropdownMenuContent align="end">
                         <DropdownMenuItem>Edit Area</DropdownMenuItem>
                         <DropdownMenuItem>View Bookings</DropdownMenuItem>
-                        <DropdownMenuItem>
-                          {area.status === 'active' ? 'Deactivate' : 'Activate'}
-                        </DropdownMenuItem>
+                        <DropdownMenuItem>Toggle Active</DropdownMenuItem>
                         <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
@@ -124,6 +141,7 @@ export default function Areas() {
             </Card>
           ))}
         </div>
-      </div>
+        )}
+        </div>
   );
 }

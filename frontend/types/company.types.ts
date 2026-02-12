@@ -1,3 +1,13 @@
+import { Service } from "./service.types"
+
+
+export type HighlightIcon = | "Shield" | "Star" | "UserCheck" | "ThumbsUp";
+
+export interface Highlight {
+  icon: HighlightIcon;
+  label: string;
+}
+
 export interface CompanyOwner {
   id: string
   fullName: string
@@ -24,12 +34,35 @@ export interface Company {
   registrationNumber: string
   address: string
   city: string
-  latitude: string
-  longitude: string
+  coordinates : {
+    longitude: number
+    latitude: number
+  }
   phone: string
   email: string
   ownerId: string
+  verified: boolean
   verificationStatus: 'pending' | 'verified' | 'rejected'
+  logoUrl: string
+  coverImageUrl: string
+  establishedYear: number
+  yearsInBusiness: number
+  Highlights: Highlight[]
+  employeeCount: number
+
+  service: Service
+  rating: number
+  reviewCount: number
+  location: string
+  servicesCount: number
+  responseTime: string
+  priceRange : {
+    min: number;
+    max: number;
+  };
+
+
+
   createdAt: string
   updatedAt: string
 

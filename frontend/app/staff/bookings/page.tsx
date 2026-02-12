@@ -1,90 +1,24 @@
 "use client"
 import { useState } from 'react';
-import { Search, Filter, MapPin, Clock, User, ChevronRight, Calendar } from 'lucide-react';
+import { Search, Filter, Clock, User, ChevronRight, Calendar, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
+import { useStaffBookings } from '@/lib/hooks/useStaff';
 
-type JobStatus = 'all' | 'upcoming' | 'in-progress' | 'completed';
-
-const allJobs = [
-  {
-    id: '1',
-    date: 'Today',
-    time: '9:00 AM',
-    duration: '2 hours',
-    customer: 'Sarah Johnson',
-    address: '123 Oak Street, Apt 4B',
-    type: 'Deep Clean',
-    status: 'upcoming' as const,
-    price: 180,
-  },
-  {
-    id: '2',
-    date: 'Today',
-    time: '12:00 PM',
-    duration: '3 hours',
-    customer: 'Michael Chen',
-    address: '456 Maple Avenue',
-    type: 'Move-out Clean',
-    status: 'in-progress' as const,
-    price: 320,
-  },
-  {
-    id: '3',
-    date: 'Today',
-    time: '4:00 PM',
-    duration: '1.5 hours',
-    customer: 'Emily Davis',
-    address: '789 Pine Road, Unit 12',
-    type: 'Regular Clean',
-    status: 'upcoming' as const,
-    price: 95,
-  },
-  {
-    id: '4',
-    date: 'Tomorrow',
-    time: '10:00 AM',
-    duration: '2.5 hours',
-    customer: 'Robert Kim',
-    address: '567 Cedar Lane',
-    type: 'Deep Clean',
-    status: 'upcoming' as const,
-    price: 220,
-  },
-  {
-    id: '5',
-    date: 'Yesterday',
-    time: '9:00 AM',
-    duration: '2 hours',
-    customer: 'Lisa Wong',
-    address: '234 Elm Street',
-    type: 'Regular Clean',
-    status: 'completed' as const,
-    price: 120,
-  },
-  {
-    id: '6',
-    date: 'Dec 28',
-    time: '2:00 PM',
-    duration: '4 hours',
-    customer: 'Tech Corp Office',
-    address: '100 Business Park Drive',
-    type: 'Commercial Clean',
-    status: 'completed' as const,
-    price: 450,
-  },
-];
+type JobStatus = 'all' | 'pending' | 'confirmed' | 'completed';
 
 const statusStyles = {
-  upcoming: 'bg-secondary text-secondary-foreground',
-  'in-progress': 'bg-primary/10 text-primary border border-primary/20',
-  completed: 'bg-success/10 text-success',
+  pending: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
+  confirmed: 'bg-secondary text-secondary-foreground',
+  in_progress: 'bg-blue-500/10 text-blue-600 border border-blue-500/20',
+  completed: 'bg-green-500/10 text-green-600',
+  cancelled: 'bg-red-500/10 text-red-600',
 };
 
 const tabs: { label: string; value: JobStatus }[] = [
   { label: 'All Jobs', value: 'all' },
-  { label: 'Upcoming', value: 'upcoming' },
-  { label: 'In Progress', value: 'in-progress' },
+  { label: 'Pending', value: 'pending' },
+  { label: 'Confirmed', value: 'confirmed' },
   { label: 'Completed', value: 'completed' },
 ];
 
@@ -92,29 +26,126 @@ export default function StaffBookings() {
   const [activeTab, setActiveTab] = useState<JobStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  const filteredJobs = allJobs.filter((job) => {
+  // Get staff ID from auth
+  const getStaffId = () => {
+    if (typeof window === 'undefined') return '';
+    const user = JSON.parse(localStorage.getItem('user') || '{}');
+    return user.staffId || '';
+  };
+
+  const [staffId] = useState<string>(getStaffId);
+
+  // Fetch bookings from staff backend (company-based for this staff)
+  const { bookings, loading, error, fetchBookings } = useStaffBookings({
+    autoFetch: true,
+  });
+
+  // Filter bookings
+  const filteredJobs = bookings.filter((job) => {
     const matchesTab = activeTab === 'all' || job.status === activeTab;
     const matchesSearch = 
-      job.customer.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.type.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      job.address.toLowerCase().includes(searchQuery.toLowerCase());
+      job.service.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      job.company.name.toLowerCase().includes(searchQuery.toLowerCase());
     return matchesTab && matchesSearch;
   });
 
+  // Helper to format relative date
+  const getRelativeDate = (dateString: string) => {
+    const date = new Date(dateString);
+    const today = new Date();
+    const yesterday = new Date(today);
+    yesterday.setDate(yesterday.getDate() - 1);
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+
+    const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+    const todayOnly = new Date(today.getFullYear(), today.getMonth(), today.getDate());
+    const yesterdayOnly = new Date(yesterday.getFullYear(), yesterday.getMonth(), yesterday.getDate());
+    const tomorrowOnly = new Date(tomorrow.getFullYear(), tomorrow.getMonth(), tomorrow.getDate());
+
+    if (dateOnly.getTime() === todayOnly.getTime()) return 'Today';
+    if (dateOnly.getTime() === yesterdayOnly.getTime()) return 'Yesterday';
+    if (dateOnly.getTime() === tomorrowOnly.getTime()) return 'Tomorrow';
+    
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+  };
+
+  // Helper to calculate duration
+  const calculateDuration = (start: string, end: string) => {
+    const [startHour, startMin] = start.split(':').map(Number);
+    const [endHour, endMin] = end.split(':').map(Number);
+    const startMinutes = startHour * 60 + startMin;
+    const endMinutes = endHour * 60 + endMin;
+    const durationMinutes = endMinutes - startMinutes;
+    
+    const hours = Math.floor(durationMinutes / 60);
+    const minutes = durationMinutes % 60;
+    
+    if (hours === 0) return `${minutes} min`;
+    if (minutes === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
+    return `${hours}h ${minutes}m`;
+  };
+
+  // Group jobs by date
   const groupedJobs = filteredJobs.reduce((acc, job) => {
-    if (!acc[job.date]) {
-      acc[job.date] = [];
+    const relativeDate = getRelativeDate(job.bookingDate);
+    if (!acc[relativeDate]) {
+      acc[relativeDate] = [];
     }
-    acc[job.date].push(job);
+    acc[relativeDate].push(job);
     return acc;
-  }, {} as Record<string, typeof allJobs>);
+  }, {} as Record<string, typeof bookings>);
+
+  // Sort groups by date
+  const sortedGroups = Object.entries(groupedJobs).sort((a, b) => {
+    const dateA = a[1][0].bookingDate;
+    const dateB = b[1][0].bookingDate;
+    return new Date(dateA).getTime() - new Date(dateB).getTime();
+  });
+
+  const getStatusDisplay = (status: string) => {
+    const statusMap: Record<string, string> = {
+      pending: 'Pending',
+      confirmed: 'Confirmed',
+      in_progress: 'In Progress',
+      completed: 'Completed',
+      cancelled: 'Cancelled',
+    };
+    return statusMap[status] || status;
+  };
+
+  if (loading && !bookings.length) {
+    return (
+      <div className="max-w-4xl mx-auto pt-12 lg:pt-0">
+        <div className="flex items-center justify-center py-12">
+          <Loader2 className="w-8 h-8 text-primary animate-spin" />
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="max-w-4xl mx-auto pt-12 lg:pt-0">
+        <div className="bg-destructive/10 border border-destructive/30 rounded-xl p-6 text-center">
+          <p className="text-destructive font-medium">Failed to load jobs</p>
+          <button 
+            onClick={() => fetchBookings()}
+            className="mt-3 text-sm text-primary hover:underline"
+          >
+            Try again
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="max-w-4xl mx-auto space-y-6 pt-12 lg:pt-0">
       {/* Header */}
       <div className="animate-fade-in">
         <h1 className="text-2xl lg:text-3xl font-bold text-foreground">Active Jobs</h1>
-        <p className="text-muted-foreground mt-1">Manage and track your cleaning jobs</p>
+        <p className="text-muted-foreground mt-1">Manage and track your jobs</p>
       </div>
 
       {/* Search and Filter */}
@@ -155,7 +186,7 @@ export default function StaffBookings() {
 
       {/* Jobs List */}
       <div className="space-y-6 animate-fade-in" style={{ animationDelay: '0.2s' }}>
-        {Object.entries(groupedJobs).map(([date, jobs], groupIndex) => (
+        {sortedGroups.map(([date, jobs], groupIndex) => (
           <div key={date}>
             <div className="flex items-center gap-2 mb-3">
               <Calendar className="w-4 h-4 text-muted-foreground" />
@@ -166,45 +197,51 @@ export default function StaffBookings() {
                 <Link
                   key={job.id}
                   href={`/staff/bookings/${job.id}`}
-                  className="job-card flex items-start gap-4 animate-slide-in"
+                  className="block bg-card rounded-xl border border-border p-4 hover:border-primary/50 hover:shadow-md transition-all animate-slide-in"
                   style={{ animationDelay: `${0.25 + (groupIndex * jobs.length + index) * 0.03}s` }}
                 >
-                  {/* Time */}
-                  <div className="flex-shrink-0 w-20">
-                    <p className="text-sm font-semibold text-foreground">{job.time}</p>
-                    <p className="text-xs text-muted-foreground">{job.duration}</p>
-                  </div>
-
-                  {/* Divider */}
-                  <div className="w-px h-20 bg-border" />
-
-                  {/* Details */}
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between gap-2 mb-2">
-                      <div>
-                        <h3 className="font-medium text-foreground">{job.type}</h3>
-                        <p className="text-lg font-bold text-primary">${job.price}</p>
-                      </div>
-                      <span className={cn(
-                        "text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0 capitalize",
-                        statusStyles[job.status]
-                      )}>
-                        {job.status.replace('-', ' ')}
-                      </span>
+                  <div className="flex items-start gap-4">
+                    {/* Time */}
+                    <div className="flex-shrink-0 w-20">
+                      <p className="text-sm font-semibold text-foreground">{job.startTime}</p>
+                      <p className="text-xs text-muted-foreground">
+                        {calculateDuration(job.startTime, job.endTime)}
+                      </p>
                     </div>
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <User className="w-3.5 h-3.5" />
-                        <span className="text-sm">{job.customer}</span>
+
+                    {/* Divider */}
+                    <div className="w-px h-20 bg-border" />
+
+                    {/* Details */}
+                    <div className="flex-1 min-w-0">
+                      <div className="flex items-start justify-between gap-2 mb-2">
+                        <div>
+                          <h3 className="font-medium text-foreground">{job.service.name}</h3>
+                          <p className="text-lg font-bold text-primary">
+                            ${parseFloat(job.totalPrice).toFixed(2)}
+                          </p>
+                        </div>
+                        <span className={cn(
+                          "text-xs px-2 py-0.5 rounded-full font-medium flex-shrink-0",
+                          statusStyles[job.status as keyof typeof statusStyles] || statusStyles.pending
+                        )}>
+                          {getStatusDisplay(job.status)}
+                        </span>
                       </div>
-                      <div className="flex items-center gap-1 text-muted-foreground">
-                        <MapPin className="w-3.5 h-3.5" />
-                        <span className="text-xs truncate">{job.address}</span>
+                      <div className="space-y-1">
+                        <div className="flex items-center gap-1 text-muted-foreground">
+                          <User className="w-3.5 h-3.5" />
+                          <span className="text-sm">{job.company.name}</span>
+                        </div>
+                        <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                          <Clock className="w-3.5 h-3.5" />
+                          <span>{job.startTime} - {job.endTime}</span>
+                        </div>
                       </div>
                     </div>
-                  </div>
 
-                  <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-2" />
+                    <ChevronRight className="w-5 h-5 text-muted-foreground flex-shrink-0 mt-2" />
+                  </div>
                 </Link>
               ))}
             </div>

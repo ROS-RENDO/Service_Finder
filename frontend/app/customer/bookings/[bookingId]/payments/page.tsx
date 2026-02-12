@@ -1,6 +1,7 @@
-"use client"
-import { useState } from "react";
-import Link from "next/link";
+// app/customer/bookings/[bookingId]/payment/page.tsx
+
+"use client";
+import { useState, useEffect } from "react";
 import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
@@ -16,6 +17,9 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useBookings } from "@/lib/hooks/useBookings";
+import { Booking } from "@/types/booking.types";
+import { usePayments } from "@/lib/hooks/usePayments";
 
 const paymentMethods = [
   { id: "card", name: "Credit / Debit Card", icon: CreditCard },
@@ -27,66 +31,125 @@ export default function Payment() {
   const { bookingId } = useParams();
   const router = useRouter();
   const { toast } = useToast();
+
   const [isLoading, setIsLoading] = useState(false);
-  const [paymentMethod, setPaymentMethod] = useState("card");
-  const [cardDetails, setCardDetails] = useState({
-    number: "",
-    expiry: "",
-    cvv: "",
-    name: "",
+  const [paymentMethod, setPaymentMethod] = useState<"card" | "wallet" | "cash">("card");
+
+
+  const { getBookingById, loading: bookingLoading } = useBookings({
+    autoFetch: false,
   });
+  const { createCheckoutSession, completePayment } = usePayments({ autoFetch: false });
+  const [booking, setBooking] = useState<Booking | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
-  // Mock booking data - in real app, fetch from API using bookingId
-  const booking = {
-    id: bookingId,
-    service: "Premium Home Cleaning",
-    company: "Sparkle Home Services",
-    date: "Jan 15, 2026",
-    time: "10:00 AM",
-    address: "123 Main Street, New York, 10001",
-    subtotal: 85,
-    platformFee: 5,
-    total: 90,
-  };
+  // Fetch booking details
+  useEffect(() => {
+    const fetchBooking = async () => {
+      if (!bookingId) return;
 
-  const handlePayment = () => {
+      const result = await getBookingById(bookingId as string);
+
+      if (result.success) {
+        // Check if already paid
+        if (result.booking.status !== "pending") {
+          toast({
+            title: "Already Processed",
+            description: "This booking has already been processed.",
+            variant: "destructive",
+          });
+          router.push(`/customer/bookings/${bookingId}`);
+          return;
+        }
+        setBooking(result.booking);
+      } else {
+        setError(result.error || "Booking not found");
+      }
+    };
+
+    fetchBooking();
+  }, [bookingId]);
+
+  // Handle payment submission
+ const handlePayment = async () => {
+  if (!bookingId) return;
+
+  setIsLoading(true);
+
+  try {
     if (paymentMethod === "card") {
-      if (!cardDetails.number || !cardDetails.expiry || !cardDetails.cvv || !cardDetails.name) {
+      // ✅ CARD: Redirect to Stripe Checkout
+      const result = await createCheckoutSession(bookingId as string);
+
+      if (result.success && result.url) {
+        window.location.href = result.url; // Redirect to Stripe
+      } else {
         toast({
-          title: "Missing Information",
-          description: "Please fill in all card details.",
+          title: "Payment Error",
+          description: result.error || "Failed to create checkout session",
           variant: "destructive",
         });
-        return;
+      }
+    } else {
+      // ✅ CASH/WALLET: Use completePayment API
+      const result = await completePayment({
+        bookingId: bookingId as string,
+        method: paymentMethod,
+      });
+
+      console.log("Complete payment result:", result); // Debug log
+
+      if (result.success) {
+        toast({
+          title: "Success!",
+          description: result.message || "Booking confirmed successfully",
+        });
+
+        // Wait a moment for UI feedback, then redirect
+        setTimeout(() => {
+          router.push(`/customer/bookings/${bookingId}`);
+        }, 1000);
+      } else {
+        toast({
+          title: "Payment Failed",
+          description: result.error || "Failed to complete payment",
+          variant: "destructive",
+        });
       }
     }
+  } catch (err: any) {
+    console.error("Payment error:", err);
+    toast({
+      title: "Error",
+      description: err.message || "An unexpected error occurred. Please try again.",
+      variant: "destructive",
+    });
+  } finally {
+    setIsLoading(false);
+  }
+};
 
-    setIsLoading(true);
-    setTimeout(() => {
-      setIsLoading(false);
-      toast({
-        title: "Payment Successful!",
-        description: "Your booking has been confirmed.",
-      });
-      router.push(`/booking/${bookingId}`);
-    }, 2000);
-  };
+
+
+
 
   return (
     <div className="min-h-screen bg-background">
-      {/* Header */}
+      {/* Header - same as before */}
       <header className="sticky top-0 z-50 glass border-b border-border">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
-            <Button variant="ghost" onClick={() => router.back()} className="gap-2">
+            <Button
+              variant="ghost"
+              onClick={() => router.back()}
+              className="gap-2"
+            >
               <ChevronLeft className="w-4 h-4" />
               Back
             </Button>
-            <Link href="/" className="flex items-center gap-2">
-              <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center">
-                <Sparkles className="w-4 h-4 text-primary-foreground" />
-              </div>
-            </Link>
+            <div className="w-8 h-8 rounded-lg bg-gradient-hero flex items-center justify-center">
+              <Sparkles className="w-4 h-4 text-primary-foreground" />
+            </div>
             <div className="w-20" />
           </div>
         </div>
@@ -107,7 +170,7 @@ export default function Payment() {
         </motion.div>
 
         <div className="grid lg:grid-cols-3 gap-8">
-          {/* Payment Form */}
+          {/* Payment Form - same as before */}
           <motion.div
             initial={{ opacity: 0, x: -20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -125,7 +188,9 @@ export default function Payment() {
                   <button
                     key={method.id}
                     type="button"
-                    onClick={() => setPaymentMethod(method.id)}
+                    onClick={() =>
+                      setPaymentMethod(method.id as "card" | "wallet" | "cash")
+                    }
                     className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
                       paymentMethod === method.id
                         ? "border-primary bg-primary/5"
@@ -141,7 +206,9 @@ export default function Payment() {
                     >
                       <method.icon className="w-6 h-6" />
                     </div>
-                    <span className="font-medium text-foreground">{method.name}</span>
+                    <span className="font-medium text-foreground">
+                      {method.name}
+                    </span>
                     {paymentMethod === method.id && (
                       <Check className="w-5 h-5 text-primary ml-auto" />
                     )}
@@ -152,66 +219,7 @@ export default function Payment() {
 
             {/* Card Details Form */}
             {paymentMethod === "card" && (
-              <motion.div
-                initial={{ opacity: 0, height: 0 }}
-                animate={{ opacity: 1, height: "auto" }}
-                className="bg-card rounded-2xl p-6 shadow-soft"
-              >
-                <h2 className="font-display text-lg font-semibold text-foreground mb-4">
-                  Card Details
-                </h2>
-
-                <div className="space-y-4">
-                  <div>
-                    <Label htmlFor="cardName">Cardholder Name</Label>
-                    <Input
-                      id="cardName"
-                      value={cardDetails.name}
-                      onChange={(e) => setCardDetails({ ...cardDetails, name: e.target.value })}
-                      placeholder="John Doe"
-                      className="mt-2 h-12"
-                    />
-                  </div>
-
-                  <div>
-                    <Label htmlFor="cardNumber">Card Number</Label>
-                    <Input
-                      id="cardNumber"
-                      value={cardDetails.number}
-                      onChange={(e) => setCardDetails({ ...cardDetails, number: e.target.value })}
-                      placeholder="1234 5678 9012 3456"
-                      className="mt-2 h-12"
-                      maxLength={19}
-                    />
-                  </div>
-
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <Label htmlFor="expiry">Expiry Date</Label>
-                      <Input
-                        id="expiry"
-                        value={cardDetails.expiry}
-                        onChange={(e) => setCardDetails({ ...cardDetails, expiry: e.target.value })}
-                        placeholder="MM/YY"
-                        className="mt-2 h-12"
-                        maxLength={5}
-                      />
-                    </div>
-                    <div>
-                      <Label htmlFor="cvv">CVV</Label>
-                      <Input
-                        id="cvv"
-                        value={cardDetails.cvv}
-                        onChange={(e) => setCardDetails({ ...cardDetails, cvv: e.target.value })}
-                        placeholder="123"
-                        className="mt-2 h-12"
-                        maxLength={4}
-                        type="password"
-                      />
-                    </div>
-                  </div>
-                </div>
-              </motion.div>
+              <div></div>
             )}
 
             {/* Wallet Info */}
@@ -223,7 +231,8 @@ export default function Payment() {
               >
                 <Wallet className="w-12 h-12 text-primary mx-auto mb-4" />
                 <p className="text-muted-foreground">
-                  Youll be redirected to complete payment via your digital wallet.
+                  Youll be redirected to complete payment via your digital
+                  wallet.
                 </p>
               </motion.div>
             )}
@@ -240,9 +249,12 @@ export default function Payment() {
                     <Lock className="w-5 h-5 text-accent-foreground" />
                   </div>
                   <div>
-                    <h3 className="font-semibold text-foreground mb-1">Pay at Service</h3>
+                    <h3 className="font-semibold text-foreground mb-1">
+                      Pay at Service
+                    </h3>
                     <p className="text-sm text-muted-foreground">
-                      Pay directly to the cleaning staff when they arrive. Cash or card accepted.
+                      Pay directly to the cleaning staff when they arrive. Cash
+                      or card accepted.
                     </p>
                   </div>
                 </div>
@@ -257,7 +269,6 @@ export default function Payment() {
 
             {/* Pay Button */}
             <Button
- 
               size="lg"
               onClick={handlePayment}
               disabled={isLoading}
@@ -273,13 +284,13 @@ export default function Payment() {
               ) : (
                 <>
                   <Lock className="w-5 h-5" />
-                  Pay ${booking.total.toFixed(2)}
+                  Pay ${Number(booking?.totalPrice || 0).toFixed(2)}
                 </>
               )}
             </Button>
           </motion.div>
 
-          {/* Order Summary */}
+          {/* Order Summary - same as before */}
           <motion.div
             initial={{ opacity: 0, x: 20 }}
             animate={{ opacity: 1, x: 0 }}
@@ -297,23 +308,47 @@ export default function Payment() {
                     <Sparkles className="w-7 h-7 text-primary" />
                   </div>
                   <div>
-                    <p className="font-semibold text-foreground">{booking.service}</p>
-                    <p className="text-sm text-muted-foreground">{booking.company}</p>
+                    <p className="font-semibold text-foreground">
+                      {booking?.service?.name}
+                    </p>
+                    <p className="text-sm text-muted-foreground">
+                      {booking?.company?.name}
+                    </p>
                   </div>
                 </div>
 
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Date</span>
-                    <span className="text-foreground">{booking.date}</span>
+                    <span className="text-foreground">
+                      {booking?.bookingDate
+                        ? new Date(booking.bookingDate).toLocaleDateString()
+                        : "N/A"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Time</span>
-                    <span className="text-foreground">{booking.time}</span>
+                    <span className="text-foreground">
+                      {booking?.startTime
+                        ? new Date(booking.startTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "N/A"}
+                      {" - "}
+                      {booking?.endTime
+                        ? new Date(booking.endTime).toLocaleTimeString([], {
+                            hour: "2-digit",
+                            minute: "2-digit",
+                          })
+                        : "N/A"}
+                    </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-muted-foreground">Address</span>
-                    <span className="text-foreground text-right max-w-[150px]">{booking.address}</span>
+                    <span className="text-foreground text-right max-w-[150px]">
+                      {booking?.serviceAddress}
+                    </span>
                   </div>
                 </div>
               </div>
@@ -321,18 +356,26 @@ export default function Payment() {
               <div className="space-y-3 py-4 border-y border-border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Service Fee</span>
-                  <span className="text-foreground">${booking.subtotal.toFixed(2)}</span>
+                  <span className="text-foreground">
+                    ${Number(booking?.service?.basePrice || 0).toFixed(2)}
+                  </span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Platform Fee</span>
-                  <span className="text-foreground">${booking.platformFee.toFixed(2)}</span>
+                  <span className="text-foreground">
+                    $
+                    {(
+                      Number(booking?.totalPrice || 0) -
+                      Number(booking?.service?.basePrice || 0)
+                    ).toFixed(2)}
+                  </span>
                 </div>
               </div>
 
               <div className="flex justify-between pt-4">
                 <span className="font-semibold text-foreground">Total</span>
                 <span className="font-display text-xl font-bold text-primary">
-                  ${booking.total.toFixed(2)}
+                  ${Number(booking?.totalPrice || 0).toFixed(2)}
                 </span>
               </div>
             </div>

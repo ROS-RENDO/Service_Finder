@@ -1,36 +1,12 @@
 // hooks/useCategories.ts
 import { useState, useEffect } from 'react';
-
+import { ServiceType } from '@/types/serviceType.types';
+import { Category } from '@/types/category.types';
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:3001/api';
 
-interface Category {
-  id: string;
-  name: string;
-  slug: string;
-  description: string;
-  icon: string;
-  status: string;
-  displayOrder: number;
-  serviceTypesCount: number;
-  createdAt: string;
-  updatedAt: string;
-}
 
 interface CategoryWithTypes extends Category {
   serviceTypes: ServiceType[];
-}
-
-interface ServiceType {
-  id: string;
-  categoryId: string;
-  name: string;
-  slug: string;
-  description: string;
-  icon: string;
-  image: string;
-  gradient: string;
-  status: string;
-  displayOrder: number;
 }
 
 interface UseCategoriesReturn {

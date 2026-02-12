@@ -1,56 +1,8 @@
 import { useState, useEffect } from 'react'
+import { Company } from '@/types/company.types'
+import { Category } from '@/types/category.types'
+import { ServiceType } from '@/types/serviceType.types'
 
-interface Company {
-  id: string
-  name: string
-  description: string
-  city: string
-  phone: string
-  email: string
-  verificationStatus: string
-  verified: boolean
-  rating?: number
-  reviews: number
-  location: string
-  reviewCount?: number
-  priceRange?: {
-    min: number
-    max: number
-  }
-  yearsInBusiness: number
-  responseTime: string
-  logo?: string
-  coverImage?: string
-  highlights?: string[]
-  
-  coordinates?: {
-    lat: number
-    lng: number
-  }
-  servicesCount?: number
-  serviceAreas?: Array<{
-    city: string
-    coverageRadiusKm: number
-  }>
-  ratingSummary?: {
-    averageRating: string
-    totalReviews: number
-  }
-}
-
-interface Category {
-  id: string
-  name: string
-  slug: string
-}
-
-interface ServiceType {
-  id: string
-  name: string
-  slug: string
-  icon?: string
-  gradient?: string
-}
 
 interface UseCompaniesOptions {
   autoFetch?: boolean

@@ -16,6 +16,7 @@ import {
   Clock
 } from 'lucide-react';
 import { cn } from '@/lib/utils';
+import { useAuth } from '@/lib/hooks/useAuth';
 
 const profileData = {
   name: 'Jane Doe',
@@ -65,14 +66,22 @@ const badges = [
   { name: 'Deep Clean Expert', description: '100+ deep clean jobs', icon: '✨' },
   { name: 'Perfect Week', description: 'All 5-star reviews in a week', icon: '⭐' },
 ];
-
 export default function StaffProfile() {
+  const { user } = useAuth();
   const [editing, setEditing] = useState(false);
-  const [profile, setProfile] = useState(profileData);
+
+  const profile = user
+    ? {
+        ...profileData,
+        name: user.fullName,
+        email: user.email,
+        phone: user.phone || profileData.phone,
+      }
+    : profileData;
 
   const handleSave = () => {
     setEditing(false);
-    // Save to backend
+    // TODO: call profile update API here if needed
   };
 
   const averageRating = (reviews.reduce((acc, r) => acc + r.rating, 0) / reviews.length).toFixed(1);

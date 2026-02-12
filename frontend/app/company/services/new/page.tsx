@@ -5,80 +5,324 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { ArrowLeft } from "lucide-react";
-
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { Switch } from "@/components/ui/switch";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
+
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+}
+
+interface ServiceType {
+  id: string;
+  name: string;
+  slug: string;
+  categoryId: string;
+}
 
 export default function ServiceNew() {
   const router = useRouter();
+  const [loading, setLoading] = useState(false);
+  const [isActive, setIsActive] = useState(true);
+  const [companyId, setCompanyId] = useState("");
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [serviceTypes, setServiceTypes] = useState<ServiceType[]>([]);
+  const [selectedCategory, setSelectedCategory] = useState("");
+  const [selectedServiceType, setSelectedServiceType] = useState("");
+  const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
 
-  const handleSubmit = (e: React.FormEvent) => {
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+  // Fetch service types when category changes
+  useEffect(() => {
+    if (selectedCategory) {
+      fetchServiceTypesByCategory(selectedCategory);
+    } else {
+      setServiceTypes([]);
+      setSelectedServiceType("");
+    }
+  }, [selectedCategory]);
+
+  const fetchInitialData = async () => {
+    try {
+      const token = localStorage.getItem('token');
+      
+      // Fetch user's company
+      const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      if (userResponse.ok) {
+        const userData = await userResponse.json();
+        setCompanyId(userData.data?.company?.id || userData.data?.companyId);
+      }
+
+      // Fetch categories
+      const categoriesResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`);
+      if (categoriesResponse.ok) {
+        const categoriesData = await categoriesResponse.json();
+        setCategories(categoriesData.data || []);
+      }
+    } catch (error) {
+      console.error('Failed to fetch initial data:', error);
+      toast.error('Failed to load form data');
+    }
+  };
+
+  const fetchServiceTypesByCategory = async (categoryId: string) => {
+    setLoadingServiceTypes(true);
+    setSelectedServiceType(""); // Reset service type
+    
+    try {
+      // Find the category slug from the ID
+      const category = categories.find(cat => cat.id === categoryId);
+      if (!category) return;
+
+      const typesResponse = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/service-types/categories/${category.slug}`
+      );
+      
+      if (typesResponse.ok) {
+        const typesData = await typesResponse.json();
+        setServiceTypes(typesData.data?.serviceTypes || []);
+      } else {
+        toast.error('Failed to load service types');
+        setServiceTypes([]);
+      }
+    } catch (error) {
+      console.error('Failed to fetch service types:', error);
+      toast.error('Failed to load service types');
+      setServiceTypes([]);
+    } finally {
+      setLoadingServiceTypes(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    toast.success("Service created successfully!");
-    router.push("/company/services");
+    setLoading(true);
+
+    const formData = new FormData(e.currentTarget);
+    
+    const durationInput = formData.get("duration") as string;
+    const durationMatch = durationInput.match(/(\d+)-(\d+)/);
+    
+    if (!durationMatch) {
+      toast.error("Please enter duration in format: 180-240 (minutes)");
+      setLoading(false);
+      return;
+    }
+
+    const durationMin = parseInt(durationMatch[1]);
+    const durationMax = parseInt(durationMatch[2]);
+
+    const serviceData = {
+      companyId: companyId,
+      serviceTypeId: selectedServiceType,
+      name: formData.get("name") as string,
+      description: formData.get("description") as string,
+      basePrice: parseFloat(formData.get("price") as string),
+      durationMin,
+      durationMax,
+      features: [],
+      image: null,
+      isActive
+    };
+
+    if (!serviceData.companyId || !serviceData.serviceTypeId) {
+      toast.error("Company and Service Type are required");
+      setLoading(false);
+      return;
+    }
+
+    try {
+      const token = localStorage.getItem('token');
+      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify(serviceData),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok) {
+        throw new Error(result.message || "Failed to create service");
+      }
+
+      toast.success(result.message || "Service created successfully!");
+      router.push("/company/services");
+    } catch (error) {
+      console.error('Error creating service:', error);
+      toast.error(error instanceof Error ? error.message : "Failed to create service");
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
-      <div className="max-w-2xl space-y-6">
-        <div className="flex items-center gap-4">
-          <Button variant="ghost" size="icon" asChild>
-            <Link href="/company/services">
-              <ArrowLeft className="h-5 w-5" />
-            </Link>
-          </Button>
-          <div>
-            <h1 className="text-2xl font-semibold text-foreground">Add New Service</h1>
-            <p className="text-muted-foreground mt-1">Create a new cleaning service offering</p>
-          </div>
+    <div className="max-w-2xl space-y-6">
+      <div className="flex items-center gap-4">
+        <Button variant="ghost" size="icon" asChild>
+          <Link href="/company/services">
+            <ArrowLeft className="h-5 w-5" />
+          </Link>
+        </Button>
+        <div>
+          <h1 className="text-2xl font-semibold text-foreground">Add New Service</h1>
+          <p className="text-muted-foreground mt-1">Create a new cleaning service offering</p>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle>Service Details</CardTitle>
-          </CardHeader>
-          <CardContent>
-            <form onSubmit={handleSubmit} className="space-y-6">
-              <div className="space-y-2">
-                <Label htmlFor="name">Service Name</Label>
-                <Input id="name" placeholder="e.g., Deep Cleaning" />
-              </div>
-
-              <div className="space-y-2">
-                <Label htmlFor="description">Description</Label>
-                <Textarea id="description" placeholder="Describe your service..." rows={3} />
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <div className="space-y-2">
-                  <Label htmlFor="price">Base Price ($)</Label>
-                  <Input id="price" type="number" placeholder="0.00" />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="duration">Estimated Duration</Label>
-                  <Input id="duration" placeholder="e.g., 2-3 hours" />
-                </div>
-              </div>
-
-              <div className="flex items-center justify-between py-4 border-y border-border">
-                <div>
-                  <Label htmlFor="active">Active Status</Label>
-                  <p className="text-sm text-muted-foreground">Make this service available for booking</p>
-                </div>
-                <Switch id="active" defaultChecked />
-              </div>
-
-              <div className="flex gap-3 pt-4">
-                <Button type="button" variant="outline" asChild className="flex-1">
-                  <Link href="/company/services">Cancel</Link>
-                </Button>
-                <Button type="submit" className="flex-1">Create Service</Button>
-              </div>
-            </form>
-          </CardContent>
-        </Card>
       </div>
 
+      <Card>
+        <CardHeader>
+          <CardTitle>Service Details</CardTitle>
+        </CardHeader>
+        <CardContent>
+          <form onSubmit={handleSubmit} className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="category">Category *</Label>
+              <Select 
+                value={selectedCategory} 
+                onValueChange={setSelectedCategory}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select category first" />
+                </SelectTrigger>
+                <SelectContent>
+                  {categories.map((category) => (
+                    <SelectItem key={category.id} value={category.id}>
+                      {category.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="serviceType">Service Type *</Label>
+              <Select 
+                value={selectedServiceType} 
+                onValueChange={setSelectedServiceType}
+                disabled={!selectedCategory || loadingServiceTypes}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder={
+                    loadingServiceTypes 
+                      ? "Loading service types..." 
+                      : selectedCategory 
+                        ? "Select service type" 
+                        : "Select category first"
+                  } />
+                </SelectTrigger>
+                <SelectContent>
+                  {serviceTypes.map((type) => (
+                    <SelectItem key={type.id} value={type.id}>
+                      {type.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="name">Service Name *</Label>
+              <Input 
+                id="name" 
+                name="name"
+                placeholder="e.g., Deep Cleaning" 
+                required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="description">Description *</Label>
+              <Textarea 
+                id="description" 
+                name="description"
+                placeholder="Describe your service..." 
+                rows={3}
+                required
+              />
+            </div>
+
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label htmlFor="price">Base Price ($) *</Label>
+                <Input 
+                  id="price" 
+                  name="price"
+                  type="number" 
+                  step="0.01"
+                  min="0"
+                  placeholder="0.00"
+                  required
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="duration">Duration (minutes) *</Label>
+                <Input 
+                  id="duration" 
+                  name="duration"
+                  placeholder="e.g., 180-240"
+                  required
+                />
+                <p className="text-xs text-muted-foreground">Format: min-max (e.g., 180-240)</p>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between py-4 border-y border-border">
+              <div>
+                <Label htmlFor="active">Active Status</Label>
+                <p className="text-sm text-muted-foreground">Make this service available for booking</p>
+              </div>
+              <Switch 
+                id="active" 
+                checked={isActive}
+                onCheckedChange={setIsActive}
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <Button 
+                type="button" 
+                variant="outline" 
+                asChild 
+                className="flex-1"
+                disabled={loading}
+              >
+                <Link href="/company/services">Cancel</Link>
+              </Button>
+              <Button 
+                type="submit" 
+                className="flex-1"
+                disabled={loading || !companyId || !selectedServiceType}
+              >
+                {loading ? "Creating..." : "Create Service"}
+              </Button>
+            </div>
+          </form>
+        </CardContent>
+      </Card>
+    </div>
   );
 }

@@ -1,24 +1,5 @@
 import { useState, useEffect } from 'react'
-
-interface Review {
-  id: string
-  rating: number
-  comment: string
-  createdAt: string
-  customer: {
-    avatar: string
-    fullName: string
-  }
-  timeAgo: string
-  booking: {
-    service: {
-      name: string
-    }
-    company: {
-      name: string
-    }
-  }
-}
+import { Review } from '@/types/review.types'
 
 interface UseReviewsOptions {
   autoFetch?: boolean

@@ -9,17 +9,11 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
-
-const services = [
-  { id: 1, name: "Regular Cleaning", description: "Standard house cleaning service", price: 95, duration: "2-3 hours", status: "active" },
-  { id: 2, name: "Deep Cleaning", description: "Thorough deep cleaning of all areas", price: 180, duration: "4-5 hours", status: "active" },
-  { id: 3, name: "Move-in/Move-out", description: "Complete cleaning for moving", price: 320, duration: "6-8 hours", status: "active" },
-  { id: 4, name: "Office Cleaning", description: "Commercial office cleaning service", price: 250, duration: "3-4 hours", status: "active" },
-  { id: 5, name: "Carpet Cleaning", description: "Professional carpet shampooing", price: 150, duration: "2-3 hours", status: "inactive" },
-  { id: 6, name: "Window Cleaning", description: "Interior and exterior windows", price: 120, duration: "2-3 hours", status: "active" },
-];
+import { useServices } from "@/lib/hooks/useServices";
 
 export default function Services() {
+  const { services, loading, error, fetchServices } = useServices({ autoFetch: true });
+
   return (
       <div className="space-y-6">
         <div className="flex items-center justify-between">
@@ -35,7 +29,20 @@ export default function Services() {
           </Button>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {loading && (
+          <p className="text-muted-foreground">Loading services...</p>
+        )}
+        {error && !loading && (
+          <div className="flex items-center justify-between bg-destructive/10 border border-destructive/30 rounded-md px-3 py-2 text-sm text-destructive">
+            <span>Failed to load services.</span>
+            <Button variant="ghost" size="sm" onClick={fetchServices}>
+              Retry
+            </Button>
+          </div>
+        )}
+
+        {!loading && !error && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           {services.map((service) => (
             <Card key={service.id} className="overflow-hidden hover:shadow-md transition-shadow">
               <CardContent className="p-5">
@@ -44,11 +51,11 @@ export default function Services() {
                     <div className="flex items-center gap-2">
                       <h3 className="font-semibold text-foreground">{service.name}</h3>
                       <span className={`px-2 py-0.5 rounded-full text-xs ${
-                        service.status === 'active' 
+                        service.isActive 
                           ? 'bg-green-100 text-green-700' 
                           : 'bg-muted text-muted-foreground'
                       }`}>
-                        {service.status}
+                        {service.isActive ? "active" : "inactive"}
                       </span>
                     </div>
                     <p className="text-sm text-muted-foreground mt-1">{service.description}</p>
@@ -76,17 +83,22 @@ export default function Services() {
                 <div className="flex items-center gap-4 mt-4 pt-4 border-t border-border">
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <DollarSign className="h-4 w-4" />
-                    <span className="font-medium text-foreground">${service.price}</span>
+                    <span className="font-medium text-foreground">
+                      ${service.basePrice.toFixed(2)}
+                    </span>
                   </div>
                   <div className="flex items-center gap-1.5 text-sm text-muted-foreground">
                     <Clock className="h-4 w-4" />
-                    <span>{service.duration}</span>
+                    <span>
+                      {service.durationMin}–{service.durationMax} min
+                    </span>
                   </div>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
+        )}
       </div>
   );
 }
