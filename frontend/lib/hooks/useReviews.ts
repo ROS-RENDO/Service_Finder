@@ -6,8 +6,10 @@ interface Review {
   comment: string
   createdAt: string
   customer: {
+    avatar: string
     fullName: string
   }
+  timeAgo: string
   booking: {
     service: {
       name: string
@@ -165,6 +167,34 @@ export function useReviews(options: UseReviewsOptions = {}) {
     }
   }
 
+    const fetchReviewsByCompany = async (compId: string) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reviews/company/${compId}?page=${page}&limit=${limit}`
+      )
+
+      if (!response.ok) {
+        setError('Failed to fetch reviews')
+        return
+      }
+
+      const data = await response.json()
+      setReviews(data.data || data.reviews || [])
+      if (data.pagination) {
+        setPagination(data.pagination)
+      }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred')
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  
+
   return {
     reviews,
     loading,
@@ -174,6 +204,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
     fetchReviews,
     createReview,
     updateReview,
-    deleteReview
+    deleteReview,
+    fetchReviewsByCompany
   }
 }

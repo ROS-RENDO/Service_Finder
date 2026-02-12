@@ -279,7 +279,7 @@ export default function ServiceDetails() {
 
                 {/* Book Button */}
                 <Button className="w-full mb-4" asChild>
-                  <Link href={`/book/${serviceData.id}`}>
+                  <Link href={`/booking/${serviceData.id}`}>
                     <Calendar className="w-5 h-5 mr-2" />
                     Book Now
                   </Link>

@@ -1,19 +1,47 @@
 import { useState, useEffect } from 'react'
 
-interface Service {
-  id: string
-  name: string
-  description: string
-  basePrice: string
-  durationMinutes: number
-  isActive: boolean
-  category: {
-    name: string
-  }
-  company: {
-    name: string
-  }
+interface ServiceType {
+  id: string;
+  categoryId: string;
+  name: string;
+  slug: string;
+  description?: string;
+  icon?: string;
+  image?: string;
+  status?: string;
+  displayOrder?: number;
+  createdAt?: string;
+  updatedAt?: string;
+  category?: {
+    id: string;
+    name: string;
+    slug: string;
+    description?: string;
+    icon?: string;
+    status?: string;
+    displayOrder?: number;
+    createdAt?: string;
+    updatedAt?: string;
+  };
 }
+
+interface Service {
+  id: string;
+  companyId: string;
+  serviceTypeId: string;
+  name: string;
+  image?: string;
+  description?: string;
+  basePrice?: string | number;
+  features?: string[];
+  durationMin?: number;
+  durationMax?: number;
+  isActive: boolean;
+  createdAt?: string;
+  updatedAt?: string;
+  serviceType?: ServiceType;
+}
+
 
 interface UseServicesOptions {
   autoFetch?: boolean
@@ -157,6 +185,29 @@ export function useServices(options: UseServicesOptions = {}) {
     }
   }
 
+  const fetchServicesByCompany = async (companyId: string) => {
+  setLoading(true)
+  setError(null)
+
+  try {
+    const response = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/services/company/${companyId}`
+    )
+
+    if (!response.ok) {
+      setError('Failed to fetch company services')
+      return
+    }
+
+    const data = await response.json()
+    setServices(data.data)
+  } catch (err) {
+    setError('An error occurred')
+  } finally {
+    setLoading(false)
+  }
+}
+
   return {
     services,
     loading,
@@ -166,6 +217,7 @@ export function useServices(options: UseServicesOptions = {}) {
     getServiceById,
     createService,
     updateService,
-    deleteService
+    deleteService,
+    fetchServicesByCompany
   }
 }

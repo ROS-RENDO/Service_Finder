@@ -68,9 +68,6 @@ const Messages = () => {
     }
   }, [searchParams]);
 
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [messagesList]);
 
   const handleSend = () => {
     if (!newMessage.trim()) return;

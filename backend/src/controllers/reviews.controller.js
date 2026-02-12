@@ -1,5 +1,26 @@
 const prisma = require('../config/database');
 
+
+const getMyReviews = async (req, res) => {
+  const customerId = req.user.id;
+
+  const reviews = await prisma.review.findMany({
+    where: { customerId },
+    include: {
+      booking: {
+        include: {
+          service: true,
+          company: true,
+        },
+      },
+    },
+    orderBy: { createdAt: 'desc' },
+  });
+
+  res.json(reviews);
+};
+
+
 const getAllReviews = async (req, res, next) => {
   try {
     const { companyId, customerId, page = 1, limit = 10 } = req.query;
@@ -273,10 +294,90 @@ async function updateCompanyRating(companyId) {
   });
 }
 
+const { formatDistanceToNow } = require('date-fns'); // npm install date-fns
+
+const getReviewsByCompany = async (req, res, next) => {
+  try {
+    const { companyId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
+    const skip = (page - 1) * limit;
+
+    // Count total reviews for company
+    const total = await prisma.review.count({
+      where: {
+        booking: {
+          companyId: BigInt(companyId)
+        }
+      }
+    });
+
+    // Fetch reviews
+    const reviews = await prisma.review.findMany({
+      where: {
+        booking: {
+          companyId: BigInt(companyId)
+        }
+      },
+      include: {
+        customer: {
+          select: {
+            id: true,
+            fullName: true,
+            avatar: true
+            
+          }
+        },
+        booking: {
+          select: {
+            id: true,
+            service: {
+              select: {
+                id: true,
+                name: true
+              }
+            }
+          }
+        }
+      },
+      orderBy: {
+        createdAt: 'desc'
+      },
+      skip,
+      take: limit
+    });
+
+    // Map reviews to add timeAgo
+    const formattedReviews = reviews.map(review => ({
+      id: review.id.toString(),
+      rating: review.rating,
+      comment: review.comment,
+      customer: review.customer,
+      booking: review.booking,
+      createdAt: review.createdAt,
+      timeAgo: formatDistanceToNow(new Date(review.createdAt), { addSuffix: true }) // ← here
+    }));
+
+    res.json({
+      total,
+      page,
+      limit,
+      totalPages: Math.ceil(total / limit),
+      reviews: formattedReviews
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+
+
 module.exports = {
   getAllReviews,
   getReviewById,
   createReview,
   updateReview,
-  deleteReview
+  deleteReview,
+  getMyReviews,
+  getReviewsByCompany
 };

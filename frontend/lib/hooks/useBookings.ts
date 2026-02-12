@@ -79,7 +79,8 @@ export function useBookings(options: UseBookingsOptions = {}) {
     try {
       const token = localStorage.getItem('token')
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/bookings/${id}`, {
-        headers: { 'Authorization': `Bearer ${token}` }
+        headers: { 'Authorization': `Bearer ${token}` },
+        credentials: 'include'
       })
       if (response.ok) {
         const data = await response.json()
@@ -103,6 +104,7 @@ export function useBookings(options: UseBookingsOptions = {}) {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
+        credentials: 'include',
         body: JSON.stringify(bookingData)
       })
 
@@ -111,6 +113,7 @@ export function useBookings(options: UseBookingsOptions = {}) {
         fetchBookings()
         return { success: true, booking: data.booking }
       }
+      console.log(response)
       const error = await response.json()
       return { success: false, error: error.error }
     } catch (err) {

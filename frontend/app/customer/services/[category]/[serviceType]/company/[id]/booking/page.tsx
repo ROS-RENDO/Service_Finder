@@ -1,7 +1,7 @@
 "use client"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import Link from "next/link";
-import { useRouter, useParams } from "next/navigation";
+import { useRouter, useParams, useSearchParams } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
 import {
   ChevronLeft,
@@ -12,11 +12,13 @@ import {
   CreditCard,
   Check,
   Sparkles,
+  Loader2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
+import { useBookings } from "@/lib/hooks/useBookings";
 
 const steps = [
   { id: 1, name: "Date & Time", icon: Calendar },
@@ -25,16 +27,44 @@ const steps = [
 ];
 
 const timeSlots = [
-  "8:00 AM", "9:00 AM", "10:00 AM", "11:00 AM",
-  "12:00 PM", "1:00 PM", "2:00 PM", "3:00 PM", "4:00 PM",
+  "08:00", "09:00", "10:00", "11:00", "12:00", 
+  "13:00", "14:00", "15:00", "16:00", "17:00",
+  "18:00", "19:00", "20:00", "21:00", "22:00",
+  "23:00", "00:00"
 ];
 
+interface Service {
+  id: string;
+  name: string;
+  description: string;
+  basePrice: number;
+  durationMin: number;
+  categoryId: string;
+  companyId: string;
+  isActive: boolean;
+  company?: {
+    id: string;
+    name: string;
+  };
+}
+
 export default function BookService() {
-  const { id } = useParams();
+  const params = useParams();
+  const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
+  const { createBooking, loading: bookingLoading } = useBookings({ autoFetch: false });
+  
   const [currentStep, setCurrentStep] = useState(1);
-  const [isLoading, setIsLoading] = useState(false);
+  const [service, setService] = useState<Service | null>(null);
+  const [serviceLoading, setServiceLoading] = useState(true);
+  
+  // Try to get companyId from URL params first, fallback to service data
+  const urlCompanyId = params.companyId as string;
+  const serviceId = searchParams.get("service");
+  
+  // Use companyId from service data if URL param is not available
+  const companyId = urlCompanyId || service?.companyId;
 
   // Form data
   const [selectedDate, setSelectedDate] = useState("");
@@ -46,13 +76,42 @@ export default function BookService() {
     notes: "",
   });
 
-  // Mock service data
-  const service = {
-    name: "Premium Home Cleaning",
-    company: "Sparkle Home Services",
-    price: 85,
-    duration: "2-3 hours",
-  };
+  // Fetch service data on mount
+  useEffect(() => {
+    const fetchService = async () => {
+      if (!serviceId) return;
+      
+      setServiceLoading(true);
+      try {
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/services/${serviceId}`
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setService(data.data);
+        } else {
+          toast({
+            title: "Error",
+            description: "Failed to load service details",
+            variant: "destructive",
+          });
+          router.back();
+        }
+      } catch (error) {
+        toast({
+          title: "Error",
+          description: "Failed to load service details",
+          variant: "destructive",
+        });
+        router.back();
+      } finally {
+        setServiceLoading(false);
+      }
+    };
+
+    fetchService();
+  }, [serviceId, router, toast]);
 
   const handleNext = () => {
     if (currentStep < 3) {
@@ -66,18 +125,89 @@ export default function BookService() {
     }
   };
 
-  const handleConfirm = () => {
-    setIsLoading(true);
-    // Generate a mock booking ID and redirect to payment
-    const bookingId = `BK${Date.now()}`;
-    setTimeout(() => {
-      setIsLoading(false);
+  const handleConfirm = async () => {
+    console.log('handleConfirm called');
+    
+    if (!service) {
+      console.log('No service found');
       toast({
-        title: "Booking Created!",
-        description: "Redirecting to payment...",
+        title: "Error",
+        description: "Service information not loaded",
+        variant: "destructive",
       });
-      router.push(`/payment/${bookingId}`);
-    }, 1000);
+      return;
+    }
+    
+    // Use companyId from service if not in URL
+    const finalCompanyId = companyId || service.companyId;
+    
+    if (!finalCompanyId) {
+      toast({
+        title: "Error",
+        description: "Company ID not found",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    try {
+      const serviceAddress = `${address.street}, ${address.city}, ${address.zip}`;
+      
+      // Ensure IDs are valid numbers
+      const parsedCompanyId = parseInt(finalCompanyId);
+      const parsedServiceId = parseInt(serviceId!);
+      
+      console.log('Parsed IDs:', { parsedCompanyId, parsedServiceId });
+      
+      if (isNaN(parsedCompanyId) || isNaN(parsedServiceId)) {
+        console.log('Invalid IDs');
+        toast({
+          title: "Error",
+          description: "Invalid company or service ID",
+          variant: "destructive",
+        });
+        return;
+      }
+      
+      const bookingData = {
+        companyId: parsedCompanyId,
+        serviceId: parsedServiceId,
+        bookingDate: selectedDate,
+        startTime: selectedTime,
+        serviceAddress: serviceAddress,
+        // Optional fields - only include if they have values
+        ...(address.notes && { specialInstructions: address.notes })
+      };
+
+      console.log('Booking data being sent:', bookingData);
+      console.log('Calling createBooking...');
+      const result = await createBooking(bookingData);
+      console.log('Booking result:', result);
+
+      if (result.success) {
+        const bookingId = result.booking.id;
+        
+        toast({
+          title: "Booking Created!",
+          description: "Redirecting to payment...",
+        });
+
+        router.push(`/customer/bookings/${bookingId}/payments`);
+      } else {
+        toast({
+          title: "Booking Failed",
+          description: result.error || "Failed to create booking",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error('Booking error:', error);
+      toast({
+        title: "Error",
+        description: "Failed to create booking. Please try again.",
+        variant: "destructive",
+      });
+    }
   };
 
   const canProceed = () => {
@@ -90,6 +220,48 @@ export default function BookService() {
         return true;
     }
   };
+
+  const formatTimeDisplay = (time24: string) => {
+    const [hour] = time24.split(':');
+    const hourNum = parseInt(hour);
+    const isPM = hourNum >= 12;
+    const displayHour = hourNum === 0 ? 12 : hourNum > 12 ? hourNum - 12 : hourNum;
+    return `${displayHour}:00 ${isPM ? 'PM' : 'AM'}`;
+  };
+
+  const formatDuration = (minutes: number) => {
+    if (minutes < 60) return `${minutes} min`;
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return mins > 0 ? `${hours}h ${mins}min` : `${hours}h`;
+  };
+
+  // Show loading state
+  if (serviceLoading) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <Loader2 className="w-8 h-8 animate-spin mx-auto text-primary mb-4" />
+          <p className="text-muted-foreground">Loading service details...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Show error if service not found
+  if (!service) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <div className="text-center">
+          <p className="text-foreground font-semibold mb-2">Service not found</p>
+          <Button onClick={() => router.back()}>Go Back</Button>
+        </div>
+      </div>
+    );
+  }
+
+  const platformFee = 5;
+  const totalPrice = service.basePrice + platformFee;
 
   return (
     <div className="min-h-screen bg-background">
@@ -186,7 +358,7 @@ export default function BookService() {
                                 : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
                             }`}
                           >
-                            {time}
+                            {formatTimeDisplay(time)}
                           </button>
                         ))}
                       </div>
@@ -275,7 +447,7 @@ export default function BookService() {
                         <span className="text-muted-foreground">Date & Time</span>
                       </div>
                       <span className="font-medium text-foreground">
-                        {selectedDate} at {selectedTime}
+                        {selectedDate} at {formatTimeDisplay(selectedTime)}
                       </span>
                     </div>
 
@@ -294,8 +466,17 @@ export default function BookService() {
                         <Clock className="w-5 h-5 text-primary" />
                         <span className="text-muted-foreground">Duration</span>
                       </div>
-                      <span className="font-medium text-foreground">{service.duration}</span>
+                      <span className="font-medium text-foreground">
+                        {formatDuration(service.durationMin)}
+                      </span>
                     </div>
+
+                    {address.notes && (
+                      <div className="py-3 border-t border-border">
+                        <p className="text-sm text-muted-foreground mb-1">Special Instructions:</p>
+                        <p className="text-sm text-foreground">{address.notes}</p>
+                      </div>
+                    )}
                   </div>
 
                   <p className="mt-6 text-sm text-muted-foreground text-center">
@@ -319,7 +500,6 @@ export default function BookService() {
 
               {currentStep < 3 ? (
                 <Button
-
                   onClick={handleNext}
                   disabled={!canProceed()}
                   className="gap-2"
@@ -329,13 +509,28 @@ export default function BookService() {
                 </Button>
               ) : (
                 <Button
-   
-                  onClick={handleConfirm}
-                  disabled={isLoading}
+                  onClick={() => {
+                    console.log('Button clicked!');
+                    console.log('Service:', service);
+                    console.log('CompanyId:', companyId);
+                    console.log('ServiceId:', serviceId);
+                    console.log('Booking loading:', bookingLoading);
+                    handleConfirm();
+                  }}
+                  disabled={bookingLoading}
                   className="gap-2"
                 >
-                  {isLoading ? "Processing..." : "Proceed to Payment"}
-                  <CreditCard className="w-4 h-4" />
+                  {bookingLoading ? (
+                    <>
+                      <Loader2 className="w-4 h-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : (
+                    <>
+                      Proceed to Payment
+                      <CreditCard className="w-4 h-4" />
+                    </>
+                  )}
                 </Button>
               )}
             </div>
@@ -355,7 +550,9 @@ export default function BookService() {
                   </div>
                   <div>
                     <p className="font-semibold text-foreground">{service.name}</p>
-                    <p className="text-sm text-muted-foreground">{service.company}</p>
+                    <p className="text-sm text-muted-foreground">
+                      {service.company?.name || 'Service Provider'}
+                    </p>
                   </div>
                 </div>
               </div>
@@ -363,17 +560,17 @@ export default function BookService() {
               <div className="space-y-3 py-4 border-y border-border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Service Fee</span>
-                  <span className="text-foreground">${service.price}.00</span>
+                  <span className="text-foreground">${service.basePrice.toFixed(2)}</span>
                 </div>
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Platform Fee</span>
-                  <span className="text-foreground">$5.00</span>
+                  <span className="text-foreground">${platformFee.toFixed(2)}</span>
                 </div>
               </div>
 
               <div className="flex justify-between mt-4">
                 <span className="font-semibold text-foreground">Total</span>
-                <span className="text-2xl font-bold text-primary">${service.price + 5}.00</span>
+                <span className="text-2xl font-bold text-primary">${totalPrice.toFixed(2)}</span>
               </div>
             </div>
           </div>

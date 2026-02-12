@@ -1,174 +1,253 @@
 "use client"
-import Link from 'next/link';
-import { useParams } from 'next/navigation';
-import { ArrowLeft, Calendar, CreditCard, Download, DollarSign, FileText, Hash } from 'lucide-react';
-import { Button } from '@/components/ui/button';
-import { Card } from '@/components/ui/card';
-import { Separator } from '@/components/ui/separator';
-import { PageHeader } from '@/components/common/PageHeader';
-import { StatusBadge, StatusType } from '@/components/common/StatusBadge';
-import { usePayments } from '@/lib/hooks/usePayments';
-import { useToast } from '@/lib/hooks/use-toast';
+import Link from "next/link";
+import { useParams } from "next/navigation";
+import { motion } from "framer-motion";
+import {
+  ChevronLeft,
+  Sparkles,
+  CreditCard,
+  Download,
+  CheckCircle2,
+  Receipt,
+  Calendar,
+  Clock,
+  Building2,
+  FileText,
+} from "lucide-react";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
+import { Separator } from "@/components/ui/separator";
 
-import { useState, useEffect } from 'react';
-import { LoadingCard } from '@/components/common/LoadingCard';
+export default function PaymentDetails() {
+  const { paymentId } = useParams();
 
-export default function PaymentDetailsPage() {
-  const params = useParams()
-  const id = params?.id as string | undefined
-   const [payment, setPayment] = useState<any>(null)
-  const { toast } = useToast();
-
-
-  const { getPaymentById, loading } = usePayments({ autoFetch: false })
-
-   useEffect(() => {
-    if (id) {
-      getPaymentById(id).then(res => {
-        if (res.success) {
-          setPayment(res.payment)
-        }
-      })
-    }
-  }, [id, getPaymentById])
-
-
-  if (loading) <LoadingCard/>
-  if (!payment) {
-    return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <h2 className="font-display text-2xl font-semibold">Payment not found</h2>
-        <Button asChild className="mt-4">
-          <Link href="/customer/payments">Back to Payments</Link>
-        </Button>
-      </div>
-    );
-  }
-
-  const handleDownloadReceipt = () => {
-    toast({
-      title: 'Receipt Downloaded',
-      description: 'Your receipt has been downloaded successfully.',
-    });
+  // Mock payment data - in real app, fetch from API
+  const payment = {
+    id: paymentId || "PAY-2026011500001",
+    transactionId: "TXN-8A4F2C9E1B3D",
+    status: "completed",
+    method: "Credit Card",
+    cardLast4: "4242",
+    cardBrand: "Visa",
+    date: "January 15, 2026",
+    time: "10:32 AM",
+    booking: {
+      id: "BK1769248347424",
+      service: "Premium Home Cleaning",
+      company: "Sparkle Home Services",
+      scheduledDate: "January 18, 2026",
+      scheduledTime: "10:00 AM",
+    },
+    breakdown: {
+      serviceFee: 85.0,
+      platformFee: 5.0,
+      discount: 0,
+      tax: 0,
+      total: 90.0,
+    },
+    billingAddress: {
+      name: "John Doe",
+      email: "john.doe@example.com",
+      address: "123 Main Street, New York, NY 10001",
+    },
   };
 
   return (
-    <div className="animate-fade-in">
-      <Button variant="ghost" asChild className="mb-4">
-        <Link href="/customer/payments">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Payments
-        </Link>
-      </Button>
+    <div className="min-h-screen bg-background">
 
-      <PageHeader
-        title={`Payment ${payment.id}`}
-        description="View transaction details"
-        actions={<StatusBadge status={payment.status as StatusType} />}
-      />
+      <main className="container mx-auto px-4 py-8 max-w-3xl">
+        {/* Success Header */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="text-center mb-8"
+        >
+          <div className="w-16 h-16 rounded-full bg-green-100 dark:bg-green-900/30 flex items-center justify-center mx-auto mb-4">
+            <CheckCircle2 className="w-8 h-8 text-green-600 dark:text-green-400" />
+          </div>
+          <h1 className="font-display text-2xl md:text-3xl font-bold text-foreground mb-2">
+            Payment Receipt
+          </h1>
+          <p className="text-muted-foreground">
+            Transaction completed successfully
+          </p>
+        </motion.div>
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        {/* Payment Details */}
-        <Card className="glass-card p-6">
-          <h3 className="mb-4 font-display text-xl font-semibold">Transaction Details</h3>
-          
-          <div className="space-y-4">
+        {/* Receipt Card */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="bg-card rounded-2xl shadow-card overflow-hidden"
+        >
+          {/* Receipt Header */}
+          <div className="bg-gradient-hero p-6 text-primary-foreground">
             <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Hash className="h-4 w-4" />
-                Payment ID
-              </span>
-              <span className="font-medium">{payment.id}</span>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <FileText className="h-4 w-4" />
-                Booking ID
-              </span>
-              <Link 
-                href={`/customer/bookings/${payment.booking.id}`}
-                className="font-medium text-primary hover:underline"
-              >
-                {payment.booking.id}
-              </Link>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <CreditCard className="h-4 w-4" />
-                Payment Method
-              </span>
-              <span className="font-medium">{payment.method}</span>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-muted-foreground">
-                <Calendar className="h-4 w-4" />
-                Transaction Date
-              </span>
-              <span className="font-medium">
-                {new Date(payment.booking.paidAt).toLocaleDateString('en-US', {
-                  weekday: 'short',
-                  year: 'numeric',
-                  month: 'long',
-                  day: 'numeric',
-                })}
-              </span>
-            </div>
-            
-            <Separator />
-            
-            <div className="flex items-center justify-between pt-2">
-              <span className="text-lg font-semibold">Amount Paid</span>
-              <span className="flex items-center text-2xl font-bold text-primary">
-                <DollarSign className="h-6 w-6" />
-                {payment.amount}
-              </span>
+              <div className="flex items-center gap-3">
+                <Receipt className="w-6 h-6" />
+                <div>
+                  <p className="text-sm opacity-80">Payment ID</p>
+                  <p className="font-mono font-semibold">{payment.id}</p>
+                </div>
+              </div>
+              <Badge className="bg-white/20 text-white border-0">
+                {payment.status === "completed" ? "Paid" : "Pending"}
+              </Badge>
             </div>
           </div>
-        </Card>
 
-        {/* Service Info & Actions */}
-        <div className="space-y-6">
-          <Card className="glass-card p-6">
-            <h3 className="mb-4 font-display text-lg font-semibold">Service Information</h3>
-            <div className="space-y-3">
-              <div>
-                <p className="text-sm text-muted-foreground">Service</p>
-                <p className="font-medium">{payment.booking.service.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Company</p>
-                <p className="font-medium">{payment.booking.company.name}</p>
-              </div>
-              <div>
-                <p className="text-sm text-muted-foreground">Service Date</p>
-                <p className="font-medium">
-                  {new Date(payment.booking.bookingDate).toLocaleDateString()} at {payment.booking.time}
-                </p>
+          <div className="p-6 space-y-6">
+            {/* Transaction Details */}
+            <div>
+              <h3 className="font-display font-semibold text-foreground mb-4 flex items-center gap-2">
+                <FileText className="w-4 h-4 text-primary" />
+                Transaction Details
+              </h3>
+              <div className="grid grid-cols-2 gap-4 text-sm">
+                <div>
+                  <p className="text-muted-foreground">Transaction ID</p>
+                  <p className="font-mono text-foreground">{payment.transactionId}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Payment Method</p>
+                  <div className="flex items-center gap-2 text-foreground">
+                    <CreditCard className="w-4 h-4" />
+                    <span>{payment.cardBrand} •••• {payment.cardLast4}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Date</p>
+                  <div className="flex items-center gap-2 text-foreground">
+                    <Calendar className="w-4 h-4" />
+                    <span>{payment.date}</span>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Time</p>
+                  <div className="flex items-center gap-2 text-foreground">
+                    <Clock className="w-4 h-4" />
+                    <span>{payment.time}</span>
+                  </div>
+                </div>
               </div>
             </div>
-          </Card>
 
-          <Card className="glass-card p-6">
-            <h3 className="mb-4 font-display text-lg font-semibold">Receipt</h3>
-            <p className="mb-4 text-sm text-muted-foreground">
-              Download a copy of your payment receipt for your records.
-            </p>
-            <Button onClick={handleDownloadReceipt} className="w-full" variant="secondary">
-              <Download className="mr-2 h-4 w-4" />
-              Download Receipt
-            </Button>
-          </Card>
-        </div>
-      </div>
+            <Separator />
+
+            {/* Service Details */}
+            <div>
+              <h3 className="font-display font-semibold text-foreground mb-4 flex items-center gap-2">
+                <Sparkles className="w-4 h-4 text-primary" />
+                Service Details
+              </h3>
+              <div className="bg-secondary/50 rounded-xl p-4">
+                <div className="flex items-start gap-4">
+                  <div className="w-12 h-12 rounded-xl bg-primary/10 flex items-center justify-center flex-shrink-0">
+                    <Sparkles className="w-6 h-6 text-primary" />
+                  </div>
+                  <div className="flex-1">
+                    <p className="font-semibold text-foreground">{payment.booking.service}</p>
+                    <div className="flex items-center gap-1 text-sm text-muted-foreground mt-1">
+                      <Building2 className="w-3 h-3" />
+                      <span>{payment.booking.company}</span>
+                    </div>
+                    <div className="flex items-center gap-4 text-sm text-muted-foreground mt-2">
+                      <span className="flex items-center gap-1">
+                        <Calendar className="w-3 h-3" />
+                        {payment.booking.scheduledDate}
+                      </span>
+                      <span className="flex items-center gap-1">
+                        <Clock className="w-3 h-3" />
+                        {payment.booking.scheduledTime}
+                      </span>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Payment Breakdown */}
+            <div>
+              <h3 className="font-display font-semibold text-foreground mb-4">
+                Payment Breakdown
+              </h3>
+              <div className="space-y-3 text-sm">
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Service Fee</span>
+                  <span className="text-foreground">${payment.breakdown.serviceFee.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                  <span className="text-muted-foreground">Platform Fee</span>
+                  <span className="text-foreground">${payment.breakdown.platformFee.toFixed(2)}</span>
+                </div>
+                {payment.breakdown.discount > 0 && (
+                  <div className="flex justify-between text-green-600">
+                    <span>Discount</span>
+                    <span>-${payment.breakdown.discount.toFixed(2)}</span>
+                  </div>
+                )}
+                {payment.breakdown.tax > 0 && (
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Tax</span>
+                    <span className="text-foreground">${payment.breakdown.tax.toFixed(2)}</span>
+                  </div>
+                )}
+                <Separator />
+                <div className="flex justify-between pt-2">
+                  <span className="font-semibold text-foreground">Total Paid</span>
+                  <span className="font-display text-xl font-bold text-primary">
+                    ${payment.breakdown.total.toFixed(2)}
+                  </span>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            {/* Billing Info */}
+            <div>
+              <h3 className="font-display font-semibold text-foreground mb-4">
+                Billing Information
+              </h3>
+              <div className="text-sm space-y-1">
+                <p className="text-foreground font-medium">{payment.billingAddress.name}</p>
+                <p className="text-muted-foreground">{payment.billingAddress.email}</p>
+                <p className="text-muted-foreground">{payment.billingAddress.address}</p>
+              </div>
+            </div>
+          </div>
+
+          {/* Actions */}
+          <div className="border-t border-border p-6">
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button variant="outline" className="flex-1 gap-2">
+                <Download className="w-4 h-4" />
+                Download Receipt
+              </Button>
+              <Link href={`/booking/${payment.booking.id}`} className="flex-1">
+                <Button className="w-full gap-2">
+                  View Booking Details
+                </Button>
+              </Link>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Help Text */}
+        <motion.p
+          initial={{ opacity: 0 }}
+          animate={{ opacity: 1 }}
+          transition={{ delay: 0.3 }}
+          className="text-center text-sm text-muted-foreground mt-6"
+        >
+          Questions about this payment?{" "}
+          <Link href="/support" className="text-primary hover:underline">
+            Contact Support
+          </Link>
+        </motion.p>
+      </main>
     </div>
   );
 }

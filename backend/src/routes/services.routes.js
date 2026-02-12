@@ -4,7 +4,8 @@ const {
   getServiceById,
   createService,
   updateService,
-  deleteService
+  deleteService,
+  getServicesByCompany
 } = require('../controllers/services.controller');
 const { authenticate, authorize } = require('../middleware/auth');
 
@@ -15,5 +16,8 @@ router.get('/:id', getServiceById);
 router.post('/', authenticate, authorize('company_admin', 'admin'), createService);
 router.put('/:id', authenticate, authorize('company_admin', 'admin'), updateService);
 router.delete('/:id', authenticate, authorize('company_admin', 'admin'), deleteService);
+
+router.get('/company/:companyId', getServicesByCompany);
+
 
 module.exports = router;

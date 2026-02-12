@@ -1,7 +1,7 @@
 "use client"
 import { useState } from "react";
 import Link from "next/link";
-import { useParams, useRouter } from "next/navigation";
+import { useRouter, useParams } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   ChevronLeft,
@@ -68,7 +68,7 @@ export default function Payment() {
         title: "Payment Successful!",
         description: "Your booking has been confirmed.",
       });
-      router.push("/dashboard");
+      router.push(`/booking/${bookingId}`);
     }, 2000);
   };
 
@@ -257,7 +257,7 @@ export default function Payment() {
 
             {/* Pay Button */}
             <Button
-
+ 
               size="lg"
               onClick={handlePayment}
               disabled={isLoading}

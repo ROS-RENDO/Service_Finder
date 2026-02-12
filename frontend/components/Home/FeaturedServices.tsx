@@ -140,7 +140,7 @@ export function FeaturedServices() {
           className="text-center mt-12"
         >
           <Button size="lg" asChild>
-            <Link href="/services">
+            <Link href="/auth/login">
               View All Services
               <ArrowRight className="w-4 h-4 ml-2" />
             </Link>

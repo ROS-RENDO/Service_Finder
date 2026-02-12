@@ -90,7 +90,7 @@ const getUserById = async (req, res, next) => {
 const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { fullName, phone, password } = req.body;
+    const { fullName, phone, email, password, avatar } = req.body;
 
     // Check access rights
     if (req.user.id !== BigInt(id) && req.user.role !== 'admin') {
@@ -103,6 +103,15 @@ const updateUser = async (req, res, next) => {
     if (password) {
       updateData.passwordHash = await bcrypt.hash(password, 10);
     }
+    if (avatar) updateData.avatar = avatar;
+      if (email) {
+
+      const exists = await prisma.user.findUnique({ where: { email } });
+      if (exists && exists.id !== BigInt(id)) {
+        return res.status(409).json({ error: 'Email already in use' });
+      }
+      updateData.email = email;
+    }
 
     const updatedUser = await prisma.user.update({
       where: { id: BigInt(id) },
@@ -113,6 +122,7 @@ const updateUser = async (req, res, next) => {
         email: true,
         phone: true,
         role: true,
+        avatar: true,
         status: true,
         updatedAt: true
       }
