@@ -23,21 +23,37 @@ export interface Booking {
   customerId: string;
   companyId: string;
   serviceId: string;
+  assignedStaffId: string | null;
   bookingDate: string;
   startTime: string;
   endTime: string;
+  actualStartTime: string | null;
+  actualEndTime: string | null;
   serviceAddress: string;
   latitude: number | null;
   longitude: number | null;
   status: BookingStatus;
+  progressPercent: number;
+  staffNotes: string | null;
   totalPrice: string;
   platformFee: string | number;
   companyEarnings: string | number;
+  customerNotes: string;
   createdAt: string;
   updatedAt: string;
   customer: Pick<User, "id" | "fullName" | "email" | "phone">;
   company: Pick<Company, "id" | "name" | "phone" | "email">;
   service: Service;
+  assignedStaff?: {
+    id: string;
+    user: {
+      id: string;
+      fullName: string;
+      email: string;
+      phone: string | null;
+      avatar: string | null;
+    };
+  } | null;
   payment: Payment | null;
   review: any | null;
   cancellation: any | null;

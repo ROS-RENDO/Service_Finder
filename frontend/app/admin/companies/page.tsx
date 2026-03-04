@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, MoreHorizontal, Star, MapPin } from "lucide-react";
 import { DataTable } from "@/components/admin/DataTable";
@@ -14,74 +14,56 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const companies = [
-  {
-    id: "1",
-    name: "SparkleClean Pro",
-    email: "contact@sparkleclean.com",
-    location: "New York, NY",
-    rating: 4.9,
-    totalBookings: 245,
-    status: "active" as const,
-    joinedAt: "Oct 15, 2025",
-  },
-  {
-    id: "2",
-    name: "Fresh & Tidy",
-    email: "info@freshtidy.com",
-    location: "Los Angeles, CA",
-    rating: 4.7,
-    totalBookings: 189,
-    status: "active" as const,
-    joinedAt: "Nov 2, 2025",
-  },
-  {
-    id: "3",
-    name: "CleanMasters",
-    email: "hello@cleanmasters.com",
-    location: "Chicago, IL",
-    rating: 4.8,
-    totalBookings: 312,
-    status: "active" as const,
-    joinedAt: "Sep 20, 2025",
-  },
-  {
-    id: "4",
-    name: "EcoClean Solutions",
-    email: "eco@ecoclean.com",
-    location: "Seattle, WA",
-    rating: 4.6,
-    totalBookings: 156,
-    status: "pending" as const,
-    joinedAt: "Dec 10, 2025",
-  },
-  {
-    id: "5",
-    name: "PureShine Co",
-    email: "team@pureshine.com",
-    location: "Miami, FL",
-    rating: 4.5,
-    totalBookings: 98,
-    status: "inactive" as const,
-    joinedAt: "Aug 5, 2025",
-  },
-];
+interface Company {
+  id: string;
+  name: string;
+  email: string;
+  city: string; // location in UI
+  ratingSummary?: { averageRating: number };
+  _count?: { bookings: number };
+  status: string;
+  verificationStatus: string;
+  createdAt: string;
+}
 
 export default function CompaniesPage() {
+  const [companies, setCompanies] = useState<Company[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
+
+  useEffect(() => {
+    fetchCompanies();
+  }, []);
+
+  const fetchCompanies = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setCompanies(data.companies || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch companies", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const filteredCompanies = companies.filter(
     (company) =>
       company.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      company.location.toLowerCase().includes(searchQuery.toLowerCase())
+      company.city?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const columns = [
     {
       key: "name",
       label: "Company",
-      render: (item: typeof companies[0]) => (
+      render: (item: Company) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-10 w-10 rounded-lg">
             <AvatarFallback className="rounded-lg bg-primary/10 text-primary text-sm font-medium">
@@ -98,40 +80,44 @@ export default function CompaniesPage() {
     {
       key: "location",
       label: "Location",
-      render: (item: typeof companies[0]) => (
+      render: (item: Company) => (
         <div className="flex items-center gap-2 text-muted-foreground">
           <MapPin className="h-4 w-4" />
-          {item.location}
+          {item.city || "—"}
         </div>
       ),
     },
     {
       key: "rating",
       label: "Rating",
-      render: (item: typeof companies[0]) => (
+      render: (item: Company) => (
         <div className="flex items-center gap-1">
           <Star className="h-4 w-4 fill-warning text-warning" />
-          <span className="font-medium">{item.rating}</span>
+          <span className="font-medium">{item.ratingSummary?.averageRating?.toFixed(1) || "—"}</span>
         </div>
       ),
     },
     {
       key: "totalBookings",
       label: "Bookings",
-      render: (item: typeof companies[0]) => (
-        <span className="font-medium">{item.totalBookings}</span>
+      render: (item: Company) => (
+        <span className="font-medium">{item._count?.bookings || 0}</span>
       ),
     },
     {
       key: "status",
       label: "Status",
-      render: (item: typeof companies[0]) => <StatusBadge status={item.status} />,
+      render: (item: Company) => <StatusBadge status={item.status as any} />,
     },
-    { key: "joinedAt", label: "Joined" },
+    {
+      key: "createdAt",
+      label: "Joined",
+      render: (item: Company) => new Date(item.createdAt).toLocaleDateString()
+    },
     {
       key: "actions",
       label: "",
-      render: (item: typeof companies[0]) => (
+      render: (item: Company) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -173,7 +159,7 @@ export default function CompaniesPage() {
         </Button>
         <Button
           variant="outline"
-          onClick={() => router.push("/admin/companies/pending")}
+          onClick={() => router.push("/admin/verification")}
         >
           View Pending
         </Button>

@@ -3,11 +3,11 @@ import { useState } from 'react';
 import { Search, Filter, Clock, User, ChevronRight, Calendar, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { useStaffBookings } from '@/lib/hooks/useStaff';
+import { useStaffBookings, formatStaffTime, formatDuration } from '@/lib/hooks/useStaff';
 
-type JobStatus = 'all' | 'pending' | 'confirmed' | 'completed';
+type JobStatus = 'all' | 'pending' | 'confirmed' | 'in_progress' | 'completed';
 
-const statusStyles = {
+const statusStyles: Record<string, string> = {
   pending: 'bg-amber-500/10 text-amber-600 border border-amber-500/20',
   confirmed: 'bg-secondary text-secondary-foreground',
   in_progress: 'bg-blue-500/10 text-blue-600 border border-blue-500/20',
@@ -19,6 +19,7 @@ const tabs: { label: string; value: JobStatus }[] = [
   { label: 'All Jobs', value: 'all' },
   { label: 'Pending', value: 'pending' },
   { label: 'Confirmed', value: 'confirmed' },
+  { label: 'In Progress', value: 'in_progress' },
   { label: 'Completed', value: 'completed' },
 ];
 
@@ -26,16 +27,7 @@ export default function StaffBookings() {
   const [activeTab, setActiveTab] = useState<JobStatus>('all');
   const [searchQuery, setSearchQuery] = useState('');
 
-  // Get staff ID from auth
-  const getStaffId = () => {
-    if (typeof window === 'undefined') return '';
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.staffId || '';
-  };
-
-  const [staffId] = useState<string>(getStaffId);
-
-  // Fetch bookings from staff backend (company-based for this staff)
+  // Fetch bookings assigned to this staff (GET /api/staff/bookings)
   const { bookings, loading, error, fetchBookings } = useStaffBookings({
     autoFetch: true,
   });
@@ -70,21 +62,9 @@ export default function StaffBookings() {
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
-  // Helper to calculate duration
-  const calculateDuration = (start: string, end: string) => {
-    const [startHour, startMin] = start.split(':').map(Number);
-    const [endHour, endMin] = end.split(':').map(Number);
-    const startMinutes = startHour * 60 + startMin;
-    const endMinutes = endHour * 60 + endMin;
-    const durationMinutes = endMinutes - startMinutes;
-    
-    const hours = Math.floor(durationMinutes / 60);
-    const minutes = durationMinutes % 60;
-    
-    if (hours === 0) return `${minutes} min`;
-    if (minutes === 0) return `${hours} hour${hours > 1 ? 's' : ''}`;
-    return `${hours}h ${minutes}m`;
-  };
+  // Duration and time display (accepts ISO or time strings from API)
+  const displayDuration = (start: string, end: string) => formatDuration(start, end);
+  const displayTime = (isoOrTime: string) => formatStaffTime(isoOrTime);
 
   // Group jobs by date
   const groupedJobs = filteredJobs.reduce((acc, job) => {
@@ -203,9 +183,9 @@ export default function StaffBookings() {
                   <div className="flex items-start gap-4">
                     {/* Time */}
                     <div className="flex-shrink-0 w-20">
-                      <p className="text-sm font-semibold text-foreground">{job.startTime}</p>
+                      <p className="text-sm font-semibold text-foreground">{displayTime(job.startTime)}</p>
                       <p className="text-xs text-muted-foreground">
-                        {calculateDuration(job.startTime, job.endTime)}
+                        {displayDuration(job.startTime, job.endTime)}
                       </p>
                     </div>
 
@@ -235,7 +215,7 @@ export default function StaffBookings() {
                         </div>
                         <div className="flex items-center gap-2 text-xs text-muted-foreground">
                           <Clock className="w-3.5 h-3.5" />
-                          <span>{job.startTime} - {job.endTime}</span>
+                          <span>{displayTime(job.startTime)} - {displayTime(job.endTime)}</span>
                         </div>
                       </div>
                     </div>

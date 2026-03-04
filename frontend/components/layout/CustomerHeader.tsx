@@ -5,25 +5,23 @@ import { useRouter } from 'next/navigation'
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { useAuthContext } from '@/lib/contexts/AuthContext'
-import { conversations } from "@/data/mockData";
 import apiClient from '@/lib/api/client'
 
 export default function CustomerHeader() {
   const router = useRouter()
-  const totalUnread = conversations.reduce((acc, conv) => acc + conv.unreadCount, 0);
-  const { user , checkAuth } = useAuthContext()
-  
+  const { user, checkAuth } = useAuthContext()
+
   const handleLogout = async () => {
-        try {
+    try {
       // ✅ Call logout endpoint (clears cookie)
       await apiClient.post('/api/auth/logout')
-      
+
       // ✅ Update context
       await checkAuth()
-      
+
       // ✅ Redirect to home
       router.push('/')
-      
+
       console.log('✅ Logged out successfully')
     } catch (error) {
       console.error('❌ Logout failed:', error)
@@ -50,19 +48,9 @@ export default function CustomerHeader() {
 
           {/* Profile Dropdown */}
           <div className="flex items-center gap-3 pl-3 border-l">
-          <Link href="/customer/messages">
-            <Button variant="ghost" size="icon" className="relative text-muted-foreground hover:text-foreground">
+            <Link href="/customer/messages" className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-gray-100 rounded-full transition-colors">
               <MessageCircle className="h-5 w-5" />
-              {totalUnread > 0 && (
-                <Badge 
-                  className="absolute -right-1 -top-1 h-5 w-5 rounded-full p-0 flex items-center justify-center text-[10px] font-semibold bg-primary text-primary-foreground border-2 border-card animate-pulse-soft"
-                >
-                  {totalUnread}
-                </Badge>
-              )}
-            </Button>
-            
-          </Link>
+            </Link>
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>
               <p className="text-xs text-gray-500">Customer</p>
@@ -70,7 +58,7 @@ export default function CustomerHeader() {
             <button className="p-2 hover:bg-gray-100 rounded-full">
               <User size={20} />
             </button>
-            <button 
+            <button
               onClick={handleLogout}
               className="p-2 hover:bg-red-50 rounded-full text-red-600"
             >

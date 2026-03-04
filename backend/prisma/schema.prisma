@@ -86,16 +86,18 @@ model User {
   updatedAt      DateTime        @updatedAt @map("updated_at")
 
   // Relations
-  ownedCompanies      Company[]          @relation("CompanyOwner")
-  staffMemberships    CompanyStaff[]
-  bookingsAsCustomer  Booking[]          @relation("CustomerBookings")
-  payments            Payment[]
-  reviews             Review[]
-  notifications       Notification[]
-  auditLogs           AuditLog[]
-  statusChanges       BookingStatusLog[]
-  cancellationsMade   Cancellation[]     @relation("CancelledBy")
-  serviceRequestsMade ServiceRequest[]   @relation("CustomerRequests")
+  ownedCompanies           Company[]                 @relation("CompanyOwner")
+  staffMemberships         CompanyStaff[]
+  bookingsAsCustomer       Booking[]                 @relation("CustomerBookings")
+  payments                 Payment[]
+  reviews                  Review[]
+  notifications            Notification[]
+  auditLogs                AuditLog[]
+  statusChanges            BookingStatusLog[]
+  cancellationsMade        Cancellation[]            @relation("CancelledBy")
+  serviceRequestsMade      ServiceRequest[]          @relation("CustomerRequests")
+  conversationParticipants ConversationParticipant[]
+  messages                 Message[]
 
   @@map("users")
 }
@@ -151,7 +153,8 @@ model CompanyStaff {
   approvedRequests  ServiceRequest[]   @relation("ApprovedBy")
   rejectedRequests  ServiceRequest[]   @relation("RejectedBy")
 
-  reviews           Review[]           @relation("StaffReviews")
+  assignedBookings Booking[] @relation("AssignedBookings")
+  reviews          Review[]  @relation("StaffReviews")
 
   createdAt DateTime @default(now())
 
@@ -242,17 +245,17 @@ model ServiceArea {
 }
 
 model ServiceRequest {
-  id              BigInt               @id @default(autoincrement())
-  customerId      BigInt               @map("customer_id")
-  companyId       BigInt               @map("company_id")
-  serviceId       BigInt               @map("service_id")
-  assignedStaffId BigInt?              @map("assigned_staff_id")
+  id              BigInt  @id @default(autoincrement())
+  customerId      BigInt  @map("customer_id")
+  companyId       BigInt  @map("company_id")
+  serviceId       BigInt  @map("service_id")
+  assignedStaffId BigInt? @map("assigned_staff_id")
 
-  requestedDate   DateTime             @map("requested_date") @db.Date
-  requestedTime   DateTime?            @map("requested_time") @db.Time
-  serviceAddress  String               @map("service_address") @db.Text
-  latitude        Decimal?             @db.Decimal(10, 7)
-  longitude       Decimal?             @db.Decimal(10, 7)
+  requestedDate  DateTime  @map("requested_date") @db.Date
+  requestedTime  DateTime? @map("requested_time") @db.Time
+  serviceAddress String    @map("service_address") @db.Text
+  latitude       Decimal?  @db.Decimal(10, 7)
+  longitude      Decimal?  @db.Decimal(10, 7)
 
   status ServiceRequestStatus @default(pending)
   notes  String?              @db.Text
@@ -307,13 +310,18 @@ model Booking {
   customerId      BigInt        @map("customer_id")
   companyId       BigInt        @map("company_id")
   serviceId       BigInt        @map("service_id")
+  assignedStaffId BigInt?       @map("assigned_staff_id")
   bookingDate     DateTime      @map("booking_date") @db.Date
   startTime       DateTime      @map("start_time") @db.Time
   endTime         DateTime      @map("end_time") @db.Time
+  actualStartTime DateTime?     @map("actual_start_time")
+  actualEndTime   DateTime?     @map("actual_end_time")
   serviceAddress  String        @map("service_address") @db.Text
   latitude        Decimal?      @db.Decimal(10, 7)
   longitude       Decimal?      @db.Decimal(10, 7)
   status          BookingStatus @default(pending)
+  progressPercent Int           @default(0) @map("progress_percent")
+  staffNotes      String?       @map("staff_notes") @db.Text
   totalPrice      Decimal       @map("total_price") @db.Decimal(10, 2)
   platformFee     Decimal       @db.Decimal(10, 2)
   companyEarnings Decimal       @db.Decimal(10, 2)
@@ -321,18 +329,20 @@ model Booking {
   updatedAt       DateTime      @updatedAt @map("updated_at")
 
   // Relations
-  customer     User               @relation("CustomerBookings", fields: [customerId], references: [id])
-  company      Company            @relation(fields: [companyId], references: [id])
-  service      Service            @relation(fields: [serviceId], references: [id])
-  statusLogs   BookingStatusLog[]
-  payment      Payment?
-  review       Review?
-  cancellation Cancellation?
-  invoice      Invoice?
+  customer      User               @relation("CustomerBookings", fields: [customerId], references: [id])
+  company       Company            @relation(fields: [companyId], references: [id])
+  service       Service            @relation(fields: [serviceId], references: [id])
+  assignedStaff CompanyStaff?      @relation("AssignedBookings", fields: [assignedStaffId], references: [id])
+  statusLogs    BookingStatusLog[]
+  payment       Payment?
+  review        Review?
+  cancellation  Cancellation?
+  invoice       Invoice?
 
   @@index([customerId], map: "fk_booking_customer")
   @@index([companyId], map: "fk_booking_company")
   @@index([serviceId], map: "fk_booking_service")
+  @@index([assignedStaffId], map: "fk_booking_assigned_staff")
   @@map("bookings")
 }
 
@@ -374,18 +384,25 @@ model Payment {
 }
 
 model Review {
-  id         BigInt   @id @default(autoincrement())
-  bookingId  BigInt   @unique @map("booking_id")
-  customerId BigInt   @map("customer_id")
-  staffId    BigInt?  @map("staff_id")  
-  rating     Int      @db.Int
-  comment    String?  @db.Text
-  createdAt  DateTime @default(now()) @map("created_at")
+  id         BigInt @id @default(autoincrement())
+  bookingId  BigInt @unique @map("booking_id")
+  customerId BigInt @map("customer_id")
+
+  // Company Review
+  companyRating  Int     @map("company_rating") @db.Int
+  companyComment String? @map("company_comment") @db.Text
+
+  // Staff Review  
+  staffId      BigInt? @map("staff_id")
+  staffRating  Int?    @map("staff_rating") @db.Int
+  staffComment String? @map("staff_comment") @db.Text
+
+  createdAt DateTime @default(now()) @map("created_at")
 
   // Relations
-  booking  Booking @relation(fields: [bookingId], references: [id])
-  customer User    @relation(fields: [customerId], references: [id])
-  staff    CompanyStaff? @relation("StaffReviews", fields: [staffId], references: [id]) 
+  booking  Booking       @relation(fields: [bookingId], references: [id])
+  customer User          @relation(fields: [customerId], references: [id])
+  staff    CompanyStaff? @relation("StaffReviews", fields: [staffId], references: [id])
 
   @@index([staffId])
   @@index([bookingId], map: "fk_review_booking")
@@ -435,6 +452,50 @@ model Notification {
 
   @@index([userId], map: "fk_notify_user")
   @@map("notifications")
+}
+
+model Conversation {
+  id        BigInt   @id @default(autoincrement())
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+
+  // Relations
+  participants ConversationParticipant[]
+  messages     Message[]
+
+  @@map("conversations")
+}
+
+model ConversationParticipant {
+  id             BigInt   @id @default(autoincrement())
+  conversationId BigInt   @map("conversation_id")
+  userId         BigInt   @map("user_id")
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  user         User         @relation(fields: [userId], references: [id])
+
+  @@unique([conversationId, userId])
+  @@index([userId], map: "fk_conversation_participant_user")
+  @@index([conversationId], map: "fk_conversation_participant_conversation")
+  @@map("conversation_participants")
+}
+
+model Message {
+  id             BigInt   @id @default(autoincrement())
+  conversationId BigInt   @map("conversation_id")
+  senderId       BigInt   @map("sender_id")
+  content        String   @db.Text
+  createdAt      DateTime @default(now()) @map("created_at")
+
+  // Relations
+  conversation Conversation @relation(fields: [conversationId], references: [id])
+  sender       User         @relation(fields: [senderId], references: [id])
+
+  @@index([conversationId], map: "fk_message_conversation")
+  @@index([senderId], map: "fk_message_sender")
+  @@map("messages")
 }
 
 model Invoice {

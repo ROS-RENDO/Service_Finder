@@ -7,12 +7,11 @@ import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Separator } from '@/components/ui/separator';
 import { PageHeader } from '@/components/common/PageHeader';
-import { userProfile } from '@/data/mockData';
 import { useToast } from '@/lib/hooks/use-toast';
-import Image from 'next/image';
 import { useAuthContext } from '@/lib/contexts/AuthContext';
 import { useUser } from '@/lib/hooks/useUser';
 import { useRouter } from 'next/navigation';
+import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 export default function ProfilePage() {
   const { toast } = useToast();
@@ -84,7 +83,7 @@ useEffect(() => {
         description="Manage your personal information and preferences"
       />
 
-      <div className="grid gap-6 lg:grid-cols-3">
+      <div className="grid gap-6 lg:grid-cols-2">
         {/* Profile Card */}
         <Card className="glass-card p-6 lg:col-span-2">
           <div className="mb-6 flex items-center justify-between">
@@ -112,22 +111,11 @@ useEffect(() => {
             {/* Avatar */}
             <div className="flex flex-col items-center">
               <div className="relative">
-                <Image
-                  src={userProfile.avatar}
-                  alt={userProfile.name}
-                  width={200}
-                  height={200}
-                  className="h-32 w-32 rounded-full object-cover ring-4 ring-primary/20"
-                />
-                {isEditing && (
-                  <Button
-                    variant="secondary"
-                    size="icon"
-                    className="absolute bottom-0 right-0 h-8 w-8 rounded-full"
-                  >
-                    <Edit2 className="h-4 w-4" />
-                  </Button>
-                )}
+                <Avatar className="h-32 w-32 ring-4 ring-primary/20">
+                  <AvatarFallback className="text-2xl font-semibold">
+                    {user?.fullName ? user.fullName.charAt(0) : 'U'}
+                  </AvatarFallback>
+                </Avatar>
               </div>
             </div>
 
@@ -191,44 +179,6 @@ useEffect(() => {
           </div>
         </Card>
 
-        {/* Loyalty Points Card */}
-        <Card className="glass-card h-fit p-6">
-          <div className="mb-4 flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-accent/20">
-              <Gift className="h-6 w-6 text-accent" />
-            </div>
-            <div>
-              <h3 className="font-display text-lg font-semibold">Loyalty Points</h3>
-              <p className="text-sm text-muted-foreground">Earn points with every booking</p>
-            </div>
-          </div>
-
-          <div className="mb-4 rounded-lg bg-gradient-to-br from-primary/20 to-accent/20 p-6 text-center">
-            <p className="text-sm text-muted-foreground">Available Points</p>
-            <p className="font-display text-4xl font-bold text-foreground">
-              {userProfile.loyaltyPoints}
-            </p>
-          </div>
-
-          <div className="space-y-2 text-sm text-muted-foreground">
-            <div className="flex items-center justify-between">
-              <span>Points Value</span>
-              <span className="font-medium text-foreground">
-                ${(userProfile.loyaltyPoints * 0.01).toFixed(2)}
-              </span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span>Member Since</span>
-              <span className="font-medium text-foreground">Jan 2024</span>
-            </div>
-          </div>
-
-          <Separator className="my-4" />
-
-          <Button variant="secondary" className="w-full">
-            Redeem Points
-          </Button>
-        </Card>
       </div>
     </div>
   );

@@ -1,20 +1,14 @@
+/* eslint-disable react-hooks/static-components */
 "use client";
-import { useState, useMemo } from "react";
+import { useState } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
 import {
   Search,
-  Home,
   ArrowRight,
   ArrowLeft,
   X,
-  Car,
-  Heart,
-  Dumbbell,
-  Scissors,
-  Briefcase,
-
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
@@ -22,28 +16,25 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import Image from "next/image";
-import {
-  useServiceTypesByCategory,
-} from "@/lib/hooks/useServiceTypes";
-
-import { serviceTypeVisual } from "@/lib/visuals/serviceTypeVisuals";
+import { useServiceTypesByCategory } from "@/lib/hooks/useServiceTypes";
+import { getServiceTypeIcon, getServiceTypeGradient, getServiceTypeImage } from "@/lib/visuals/serviceTypeVisuals";
+import { getCategoryIcon, getCategoryGradient } from "@/lib/visuals/categoryVisuals";
 import { LoadingCard } from "@/components/common/LoadingCard";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
-import { categoryVisual } from "@/lib/visuals/categoryVisuals";
-
 
 export default function ServiceTypesPage() {
   const params = useParams();
   const router = useRouter();
-  const categoryId = params.category as string;
-  const { serviceTypes, category, loading, error, refetch } = useServiceTypesByCategory(categoryId);
+  const categorySlug = params.category as string;
+  const { serviceTypes, category, loading, error } = useServiceTypesByCategory(categorySlug);
   const [searchQuery, setSearchQuery] = useState("");
 
-  if (loading) return <LoadingCard/>
-  if (error) return <ErrorMessage message={error}/>
+  if (loading) return <LoadingCard />;
+  if (error) return <ErrorMessage message={error} />;
 
-  const categoryData = categoryVisual.find(v => v.slug === categoryId);
-   const CategoryIcon = categoryData?.icon || Home;
+  // Get category visuals dynamically
+  const CategoryIcon = getCategoryIcon(categorySlug, category?.name || "");
+  const categoryGradient = getCategoryGradient(categorySlug);
 
   return (
     <div className="min-h-screen bg-background">
@@ -56,9 +47,7 @@ export default function ServiceTypesPage() {
           transition={{ duration: 0.3 }}
         >
           {/* Header */}
-          <div
-            className={`bg-gradient-to-r ${categoryData?.gradient} text-white py-12`}
-          >
+          <div className={`bg-gradient-to-r ${categoryGradient} text-white py-12`}>
             <div className="container mx-auto px-4">
               <Button
                 variant="ghost"
@@ -79,7 +68,7 @@ export default function ServiceTypesPage() {
                       Step 2 of 3 • Choose a Service Type
                     </Badge>
                     <h1 className="font-display text-2xl md:text-3xl font-bold">
-                      {categoryData?.name}
+                      {category?.name || categorySlug}
                     </h1>
                   </div>
                 </div>
@@ -111,8 +100,11 @@ export default function ServiceTypesPage() {
           <div className="container mx-auto px-4 py-8">
             <div className="grid md:grid-cols-2 lg:grid-cols-4 gap-6">
               {serviceTypes.map((service, index) => {
-                const visual = serviceTypeVisual.find(v => v.slug === service.slug)
-                if (!visual) return null;
+                // Get dynamic visuals for this service type
+                const ServiceIcon = getServiceTypeIcon(service.slug, service.name);
+                const gradient = getServiceTypeGradient(service.slug);
+                const imageUrl = getServiceTypeImage(service.slug);
+
                 return (
                   <motion.div
                     key={service.id}
@@ -120,26 +112,24 @@ export default function ServiceTypesPage() {
                     animate={{ opacity: 1, y: 0 }}
                     transition={{ delay: index * 0.05 }}
                   >
-                    <Link
-                      href={`/customer/services/${categoryId}/${service.slug}`}
-                    >
+                    <Link href={`/customer/services/${categorySlug}/${service.slug}`}>
                       <div className="group relative h-64 rounded-3xl overflow-hidden text-left shadow-card hover:shadow-elevated transition-all duration-500 cursor-pointer">
                         <div className="absolute inset-0">
                           <Image
                             width={400}
                             height={300}
-                            src={visual.image}
+                            src={imageUrl}
                             alt={service.name}
                             className="w-full h-full object-cover transition-transform duration-700 group-hover:scale-110"
                           />
                           <div
-                            className={`absolute inset-0 bg-gradient-to-t ${visual.gradient} via-transparent from-black/80 to-transparent`}
+                            className={`absolute inset-0 bg-gradient-to-t ${gradient} via-transparent from-black/80 to-transparent`}
                           />
                         </div>
 
                         <div className="relative h-full flex flex-col justify-end p-5 text-white">
                           <div className="w-10 h-10 rounded-xl bg-white/20 backdrop-blur-sm flex items-center justify-center mb-3 group-hover:scale-110 transition-transform duration-300">
-                            <visual.icon className="w-5 h-5" />
+                            <ServiceIcon className="w-5 h-5" />
                           </div>
 
                           <h3 className="font-display font-bold text-lg mb-1">
@@ -173,13 +163,13 @@ export default function ServiceTypesPage() {
               >
                 <Search className="w-16 h-16 text-muted-foreground mx-auto mb-4" />
                 <h3 className="font-display text-xl font-semibold text-foreground mb-2">
-                  No service types match {searchQuery}
+                  No service types found
                 </h3>
                 <p className="text-muted-foreground mb-6">
-                  Try a different search term
+                  Try browsing other categories
                 </p>
-                <Button variant="outline" onClick={() => setSearchQuery("")}>
-                  Clear search
+                <Button variant="outline" onClick={() => router.push("/customer/services")}>
+                  Back to Categories
                 </Button>
               </motion.div>
             )}

@@ -24,47 +24,12 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
-
-// Types matching actual backend response
-interface Booking {
-  id: string;
-  customerId: string;
-  companyId: string;
-  serviceId: string;
-  bookingDate: string;
-  startTime: string;
-  endTime: string;
-  serviceAddress: string;
-  latitude: string | null;
-  longitude: string | null;
-  status: 'pending' | 'confirmed' | 'in_progress' | 'completed' | 'cancelled';
-  totalPrice: string;
-  platformFee: string;
-  companyEarnings: string;
-  createdAt: string;
-  updatedAt: string;
-  service: {
-    name: string;
-    description: string;
-    basePrice: string;
-  };
-  customer: {
-    id: string;
-    fullName: string;
-    email: string;
-    phone: string;
-  };
-  company: {
-    id: string;
-    name: string;
-    phone: string;
-    email: string;
-  };
-}
+import { useStaffBookings } from "@/lib/hooks/useStaff";
+import type { Booking, BookingStatus } from "@/types/booking.types";
 
 const statusConfig = {
   pending: { color: "bg-amber-500 text-white", icon: Clock, label: "Pending Approval" },
@@ -83,6 +48,9 @@ export default function StaffBookingDetail() {
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set());
+  const { getBookingById, updateBookingStatus } = useStaffBookings({
+    autoFetch: false,
+  });
 
   // Default tasks if service doesn't have features
   const defaultTasks = [
@@ -99,48 +67,31 @@ export default function StaffBookingDetail() {
 
       try {
         setLoading(true);
-        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/staff/bookings/${id}`, {
-          method: 'GET',
-          credentials: 'include',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-        });
+        const result = await getBookingById(id);
 
-        if (!response.ok) {
-          if (response.status === 404) {
-            toast.error('Booking not found');
-            setTimeout(() => router.push('/staff/bookings'), 2000);
-            return;
-          }
-          if (response.status === 401) {
-            toast.error('Please login to continue');
-            setTimeout(() => router.push('/auth/login'), 2000);
-            return;
-          }
-          throw new Error('Failed to fetch booking details');
+        if (!result.success || !result.booking) {
+          toast.error(result.error || "Booking not found");
+          setTimeout(() => router.push("/staff/bookings"), 2000);
+          return;
         }
 
-        const result = await response.json();
-        console.log('Booking data:', result); // Debug log
-        setBooking(result.data || result.booking || result);
+        setBooking(result.booking as Booking);
 
         // Load completed tasks from localStorage
         const savedTasks = localStorage.getItem(`booking-${id}-tasks`);
         if (savedTasks) {
           setCompletedTasks(new Set(JSON.parse(savedTasks)));
         }
-
       } catch (error) {
-        console.error('Error fetching booking:', error);
-        toast.error('Failed to load booking details');
+        console.error("Error fetching booking:", error);
+        toast.error("Failed to load booking details");
       } finally {
         setLoading(false);
       }
     };
 
     fetchBooking();
-  }, [id, router]);
+  }, [id]);
 
   // Save completed tasks to localStorage
   useEffect(() => {
@@ -150,23 +101,15 @@ export default function StaffBookingDetail() {
   }, [completedTasks, id]);
 
   // Update booking status
-  const updateStatus = async (newStatus: 'confirmed' | 'in_progress' | 'completed') => {
+  const updateStatus = async (newStatus: Extract<BookingStatus, 'confirmed' | 'in_progress' | 'completed'>) => {
     if (!id || !booking) return;
 
     try {
       setIsUpdating(true);
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/staff/bookings/${id}/status`, {
-        method: 'PATCH',
-        credentials: 'include',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ status: newStatus }),
-      });
+      const result = await updateBookingStatus(id, newStatus);
 
-      if (!response.ok) {
-        const error = await response.json();
-        throw new Error(error.message || 'Failed to update status');
+      if (!result.success) {
+        throw new Error(result.error || "Failed to update status");
       }
 
       // Update local state
@@ -185,9 +128,9 @@ export default function StaffBookingDetail() {
         localStorage.removeItem(`booking-${id}-tasks`);
       }
 
-    } catch (error: any) {
-      console.error('Error updating status:', error);
-      toast.error(error.message || 'Failed to update status');
+    } catch (err: unknown) {
+      console.error('Error updating status:', err);
+      toast.error(err instanceof Error ? err.message : 'Failed to update status');
     } finally {
       setIsUpdating(false);
     }
@@ -220,8 +163,8 @@ export default function StaffBookingDetail() {
   // Open in Google Maps
   const openInMaps = () => {
     if (booking) {
-      const lat = booking.latitude || '0';
-      const lng = booking.longitude || '0';
+      const lat = booking.latitude != null ? String(booking.latitude) : "0";
+      const lng = booking.longitude != null ? String(booking.longitude) : "0";
       const url = `https://www.google.com/maps/dir/?api=1&destination=${lat},${lng}`;
       window.open(url, "_blank");
     }
@@ -465,20 +408,20 @@ export default function StaffBookingDetail() {
               
               <Separator />
               
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <DollarSign className="w-4 h-4 text-muted-foreground" />
-                  <div>
-                    <p className="text-xs text-muted-foreground">Your Earnings</p>
-                    <p className="text-lg font-bold text-primary">${booking.companyEarnings}</p>
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <DollarSign className="w-4 h-4 text-muted-foreground" />
+                    <div>
+                      <p className="text-xs text-muted-foreground">Your Earnings</p>
+                      <p className="text-lg font-bold text-primary">${Number(booking.companyEarnings ?? 0).toFixed(2)}</p>
+                    </div>
+                  </div>
+                  <div className="text-right">
+                    <p className="text-xs text-muted-foreground">Total Price</p>
+                    <p className="text-sm font-medium">${Number(booking.totalPrice ?? 0).toFixed(2)}</p>
+                    <p className="text-xs text-muted-foreground">Platform Fee: ${Number(booking.platformFee ?? 0).toFixed(2)}</p>
                   </div>
                 </div>
-                <div className="text-right">
-                  <p className="text-xs text-muted-foreground">Total Price</p>
-                  <p className="text-sm font-medium">${booking.totalPrice}</p>
-                  <p className="text-xs text-muted-foreground">Platform Fee: ${booking.platformFee}</p>
-                </div>
-              </div>
               
               <Separator />
               

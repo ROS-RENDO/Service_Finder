@@ -462,3 +462,104 @@ export function useStaffServiceRequests(
   };
 }
 
+// 4️⃣ Staff profile / me (stats, recent reviews for profile page)
+export interface StaffMeStats {
+  completedBookingsCount: number;
+  totalEarnings: number;
+}
+
+export interface StaffReview {
+  id: string;
+  companyRating?: number;
+  staffRating?: number;
+  companyComment?: string | null;
+  staffComment?: string | null;
+  createdAt: string;
+  customer?: { fullName: string };
+}
+
+export function useStaffMe(options: { autoFetch?: boolean } = {}) {
+  const { autoFetch = true } = options;
+  const [staff, setStaff] = useState<{
+    id: string;
+    userId: string;
+    companyId: string;
+    role: string;
+    user: { id: string; fullName: string; email: string; phone: string | null; avatar: string | null };
+    company: { id: string; name: string };
+  } | null>(null);
+  const [stats, setStats] = useState<StaffMeStats>({ completedBookingsCount: 0, totalEarnings: 0 });
+  const [recentReviews, setRecentReviews] = useState<StaffReview[]>([]);
+  const [loading, setLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+
+  const fetchMe = async () => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = localStorage.getItem("token");
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/staff/me`,
+        {
+          method: "GET",
+          headers: { Authorization: `Bearer ${token}` },
+          credentials: "include",
+        }
+      );
+      if (!response.ok) {
+        setError("Failed to load staff profile");
+        return;
+      }
+      const data = await response.json();
+      setStaff(data.staff ?? null);
+      setStats(data.stats ?? { completedBookingsCount: 0, totalEarnings: 0 });
+      setRecentReviews(data.recentReviews ?? []);
+    } catch {
+      setError("Failed to load staff profile");
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    if (autoFetch) fetchMe();
+  }, [autoFetch]);
+
+  return { staff, stats, recentReviews, loading, error, fetchMe };
+}
+
+/** Format ISO time string to "h:mm a" for display */
+export function formatStaffTime(isoString: string): string {
+  try {
+    const d = new Date(isoString);
+    const hours = d.getHours();
+    const minutes = d.getMinutes();
+    const ampm = hours >= 12 ? "PM" : "AM";
+    const h = hours % 12 || 12;
+    const m = minutes.toString().padStart(2, "0");
+    return `${h}:${m} ${ampm}`;
+  } catch {
+    return isoString;
+  }
+}
+
+/** Duration in minutes from two ISO time strings */
+export function durationMinutes(startIso: string, endIso: string): number {
+  try {
+    return (new Date(endIso).getTime() - new Date(startIso).getTime()) / (1000 * 60);
+  } catch {
+    return 0;
+  }
+}
+
+/** Format duration as "Xh Ym" or "X min" */
+export function formatDuration(startIso: string, endIso: string): string {
+  const min = durationMinutes(startIso, endIso);
+  if (min <= 0) return "0 min";
+  const hours = Math.floor(min / 60);
+  const minutes = Math.round(min % 60);
+  if (hours === 0) return `${minutes} min`;
+  if (minutes === 0) return `${hours} hour${hours > 1 ? "s" : ""}`;
+  return `${hours}h ${minutes}m`;
+}
+

@@ -12,7 +12,7 @@ interface UsePaymentsOptions {
 
 interface CompletePaymentData {
   bookingId: string | number;
-  method: 'card' | 'wallet' | 'cash';
+  method: 'card' | 'wallet' | 'cash' | 'paypal' | 'bank';
   cardDetails?: {
     number: string;
     expiry: string;
@@ -71,7 +71,7 @@ export function usePayments(options: UsePaymentsOptions = {}) {
 
       const response = await fetch(`${API_URL}/api/payments?${params}`, {
         method: 'GET',
-        headers: { 
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
@@ -108,8 +108,8 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     setError(null);
     try {
       const token = getAuthToken();
-      const response = await fetch(`${API_URL}/payments/${id}`, {
-        headers: { 
+      const response = await fetch(`${API_URL}/api/payments/${id}`, {
+        headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
@@ -176,7 +176,7 @@ export function usePayments(options: UsePaymentsOptions = {}) {
 
     try {
       const token = getAuthToken();
-      
+
       if (!token) {
         throw new Error('Authentication required. Please log in.');
       }
@@ -213,7 +213,7 @@ export function usePayments(options: UsePaymentsOptions = {}) {
       console.error('Checkout session error:', err);
       const errorMessage = err.message || 'Failed to create checkout session';
       setError(errorMessage);
-      
+
       return {
         success: false,
         error: errorMessage,
@@ -228,19 +228,19 @@ export function usePayments(options: UsePaymentsOptions = {}) {
    * @param paymentData - Payment parameters including booking ID and method
    * @returns Response with payment details
    */
-    const completePayment = useCallback(async (paymentData: {
+  const completePayment = useCallback(async (paymentData: {
     bookingId: string;
-    method: 'cash' | 'wallet';
+    method: 'card' | 'wallet' | 'cash' | 'paypal' | 'bank';
   }) => {
     setLoading(true);
     setError(null);
     try {
       const token = localStorage.getItem('token');
-      
+
       if (!token) {
-        return { 
-          success: false, 
-          error: 'Authentication required. Please log in.' 
+        return {
+          success: false,
+          error: 'Authentication required. Please log in.'
         };
       }
 
@@ -263,15 +263,15 @@ export function usePayments(options: UsePaymentsOptions = {}) {
         return data;
       }
 
-      return { 
-        success: false, 
-        error: data.error || 'Failed to complete payment' 
+      return {
+        success: false,
+        error: data.error || 'Failed to complete payment'
       };
     } catch (err) {
       console.error('Complete payment error:', err);
-      return { 
-        success: false, 
-        error: 'Network error. Please check your connection and try again.' 
+      return {
+        success: false,
+        error: 'Network error. Please check your connection and try again.'
       };
     } finally {
       setLoading(false);

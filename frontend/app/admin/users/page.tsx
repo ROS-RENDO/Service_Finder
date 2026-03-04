@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { Search, Plus, Filter, MoreHorizontal, Mail, Phone } from "lucide-react";
 
@@ -15,111 +15,96 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 
-const users = [
-  {
-    id: "1",
-    name: "Sarah Johnson",
-    email: "sarah@example.com",
-    phone: "+1 234 567 8901",
-    role: "Customer",
-    status: "active" as const,
-    joinedAt: "Dec 15, 2025",
-  },
-  {
-    id: "2",
-    name: "Mike Chen",
-    email: "mike@example.com",
-    phone: "+1 234 567 8902",
-    role: "Staff",
-    status: "active" as const,
-    joinedAt: "Dec 10, 2025",
-  },
-  {
-    id: "3",
-    name: "Emma Williams",
-    email: "emma@example.com",
-    phone: "+1 234 567 8903",
-    role: "Customer",
-    status: "pending" as const,
-    joinedAt: "Dec 8, 2025",
-  },
-  {
-    id: "4",
-    name: "James Brown",
-    email: "james@example.com",
-    phone: "+1 234 567 8904",
-    role: "Company Admin",
-    status: "active" as const,
-    joinedAt: "Dec 5, 2025",
-  },
-  {
-    id: "5",
-    name: "Lisa Davis",
-    email: "lisa@example.com",
-    phone: "+1 234 567 8905",
-    role: "Customer",
-    status: "inactive" as const,
-    joinedAt: "Nov 28, 2025",
-  },
-  {
-    id: "6",
-    name: "Robert Wilson",
-    email: "robert@example.com",
-    phone: "+1 234 567 8906",
-    role: "Staff",
-    status: "active" as const,
-    joinedAt: "Nov 20, 2025",
-  },
-];
+interface User {
+  id: string;
+  fullName: string;
+  email: string;
+  phone: string | null;
+  role: string;
+  status: string;
+  createdAt: string;
+}
 
 export default function UsersPage() {
+  const [users, setUsers] = useState<User[]>([]);
+  const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const router = useRouter();
 
+  useEffect(() => {
+    fetchUsers();
+  }, []);
+
+  const fetchUsers = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/users`, {
+        headers: { Authorization: `Bearer ${token}` },
+        credentials: "include",
+      });
+      const data = await res.json();
+      if (res.ok) {
+        setUsers(data.users || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch users", error);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   const filteredUsers = users.filter(
     (user) =>
-      user.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      user.email.toLowerCase().includes(searchQuery.toLowerCase())
+      user.fullName?.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      user.email?.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   const columns = [
     {
-      key: "name",
+      key: "fullName",
       label: "User",
-      render: (item: typeof users[0]) => (
+      render: (item: User) => (
         <div className="flex items-center gap-3">
           <Avatar className="h-9 w-9">
             <AvatarFallback className="bg-primary/10 text-primary text-sm font-medium">
-              {item.name.split(" ").map((n) => n[0]).join("")}
+              {item.fullName.split(" ").map((n) => n[0]).join("")}
             </AvatarFallback>
           </Avatar>
           <div>
-            <p className="font-medium">{item.name}</p>
+            <p className="font-medium">{item.fullName}</p>
             <p className="text-sm text-muted-foreground">{item.email}</p>
           </div>
         </div>
       ),
     },
-    { key: "phone", label: "Phone" },
+    {
+      key: "phone",
+      label: "Phone",
+      render: (item: User) => item.phone || "—"
+    },
     {
       key: "role",
       label: "Role",
-      render: (item: typeof users[0]) => (
-        <span className="inline-flex items-center rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground">
-          {item.role}
+      render: (item: User) => (
+        <span className="inline-flex items-center rounded-md bg-secondary px-2 py-1 text-xs font-medium text-secondary-foreground capitalize">
+          {item.role.replace("_", " ")}
         </span>
       ),
     },
     {
       key: "status",
       label: "Status",
-      render: (item: typeof users[0]) => <StatusBadge status={item.status} />,
+      render: (item: User) => <StatusBadge status={item.status as any} />,
     },
-    { key: "joinedAt", label: "Joined" },
+    {
+      key: "createdAt",
+      label: "Joined",
+      render: (item: User) => new Date(item.createdAt).toLocaleDateString()
+    },
     {
       key: "actions",
       label: "",
-      render: (item: typeof users[0]) => (
+      render: (item: User) => (
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
             <Button variant="ghost" size="icon" className="h-8 w-8">
@@ -133,10 +118,6 @@ export default function UsersPage() {
             <DropdownMenuItem>
               <Mail className="mr-2 h-4 w-4" />
               Send Email
-            </DropdownMenuItem>
-            <DropdownMenuItem>
-              <Phone className="mr-2 h-4 w-4" />
-              Call User
             </DropdownMenuItem>
             <DropdownMenuItem className="text-destructive">
               Suspend User

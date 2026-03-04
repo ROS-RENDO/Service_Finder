@@ -5,12 +5,13 @@ interface UseReviewsOptions {
   autoFetch?: boolean
   companyId?: string
   customerId?: string
+  staffId?: string
   page?: number
   limit?: number
 }
 
 export function useReviews(options: UseReviewsOptions = {}) {
-  const { autoFetch = true, companyId, customerId, page = 1, limit = 10 } = options
+  const { autoFetch = true, companyId, customerId, staffId, page = 1, limit = 10 } = options
   const [reviews, setReviews] = useState<Review[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
@@ -20,34 +21,37 @@ export function useReviews(options: UseReviewsOptions = {}) {
     limit: 10,
     pages: 0
   })
-   useEffect(() => {
+
+  useEffect(() => {
     if (autoFetch) {
       fetchMyReviews();
     }
   }, [autoFetch]);
 
-    const fetchMyReviews = async () => {
-      try {
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reviews/my`, {
-          method: 'GET',
-          credentials: 'include', // for cookie-based auth
-          headers: {
-            'Content-Type': 'application/json',
-            // 'Authorization': `Bearer ${token}` // if using JWT
-          },
-        });
+  const fetchMyReviews = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = localStorage.getItem('token')
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/reviews/my`, {
+        method: 'GET',
+        credentials: 'include',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`
+        },
+      });
 
-        if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
+      if (!res.ok) throw new Error(`Failed to fetch: ${res.status}`);
 
-        const data: Review[] = await res.json();
-        setReviews(data);
-      } catch (err: any) {
-        setError(err.message);
-      } finally {
-        setLoading(false);
-      }
-    };
-
+      const data = await res.json();
+      setReviews(data.reviews || data);
+    } catch (err: any) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const fetchReviews = async () => {
     setLoading(true)
@@ -56,6 +60,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
       const params = new URLSearchParams()
       if (companyId) params.append('companyId', companyId)
       if (customerId) params.append('customerId', customerId)
+      if (staffId) params.append('staffId', staffId)
       params.append('page', page.toString())
       params.append('limit', limit.toString())
 
@@ -74,7 +79,16 @@ export function useReviews(options: UseReviewsOptions = {}) {
     }
   }
 
-  const createReview = async (reviewData: any) => {
+  /**
+   * Create review with separate company and staff ratings
+   */
+  const createReview = async (reviewData: {
+    bookingId: string
+    companyRating: number
+    companyComment?: string
+    staffRating?: number
+    staffComment?: string
+  }) => {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
@@ -90,7 +104,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
 
       if (response.ok) {
         const data = await response.json()
-        fetchReviews()
+        fetchMyReviews()
         return { success: true, review: data.review }
       }
       const error = await response.json()
@@ -102,7 +116,15 @@ export function useReviews(options: UseReviewsOptions = {}) {
     }
   }
 
-  const updateReview = async (id: string, reviewData: any) => {
+  /**
+   * Update review with separate company and staff ratings
+   */
+  const updateReview = async (id: string, reviewData: {
+    companyRating?: number
+    companyComment?: string
+    staffRating?: number
+    staffComment?: string
+  }) => {
     setLoading(true)
     try {
       const token = localStorage.getItem('token')
@@ -116,10 +138,11 @@ export function useReviews(options: UseReviewsOptions = {}) {
       })
 
       if (response.ok) {
-        fetchReviews()
+        fetchMyReviews()
         return { success: true }
       }
-      return { success: false, error: 'Failed to update review' }
+      const error = await response.json()
+      return { success: false, error: error.error || 'Failed to update review' }
     } catch (err) {
       return { success: false, error: 'An error occurred' }
     } finally {
@@ -137,7 +160,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
       })
 
       if (response.ok) {
-        fetchReviews()
+        fetchMyReviews()
         return { success: true }
       }
       return { success: false, error: 'Failed to delete review' }
@@ -148,7 +171,10 @@ export function useReviews(options: UseReviewsOptions = {}) {
     }
   }
 
-    const fetchReviewsByCompany = async (compId: string) => {
+  /**
+   * Fetch reviews for a specific company
+   */
+  const fetchReviewsByCompany = async (compId: string) => {
     setLoading(true)
     setError(null)
 
@@ -163,7 +189,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
       }
 
       const data = await response.json()
-      setReviews(data.data || data.reviews || [])
+      setReviews(data.reviews || [])
       if (data.pagination) {
         setPagination(data.pagination)
       }
@@ -174,7 +200,36 @@ export function useReviews(options: UseReviewsOptions = {}) {
     }
   }
 
-  
+  /**
+   * Fetch reviews for a specific staff member (NEW)
+   */
+  const fetchReviewsByStaff = async (staffMemberId: string) => {
+    setLoading(true)
+    setError(null)
+
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reviews/staff/${staffMemberId}?page=${page}&limit=${limit}`
+      )
+
+      if (!response.ok) {
+        setError('Failed to fetch staff reviews')
+        return
+      }
+
+      const data = await response.json()
+      setReviews(data.reviews || [])
+      if (data.pagination) {
+        setPagination(data.pagination)
+      }
+      return { success: true, ratingSummary: data.ratingSummary }
+    } catch (err: any) {
+      setError(err.message || 'An error occurred')
+      return { success: false, error: err.message }
+    } finally {
+      setLoading(false)
+    }
+  }
 
   return {
     reviews,
@@ -186,6 +241,7 @@ export function useReviews(options: UseReviewsOptions = {}) {
     createReview,
     updateReview,
     deleteReview,
-    fetchReviewsByCompany
+    fetchReviewsByCompany,
+    fetchReviewsByStaff, // NEW
   }
 }

@@ -22,7 +22,7 @@ export default function PaymentSuccess() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("booking_id");
 
-    const { getBookingById, loading } = useBookings({ autoFetch: false });
+  const { getBookingById, loading } = useBookings({ autoFetch: false });
   const [showConfetti, setShowConfetti] = useState(true);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,23 +33,23 @@ export default function PaymentSuccess() {
   }, []);
 
   useEffect(() => {
-  if (!bookingId) {
-    // Wrap in setTimeout to defer state update after render
-    const timer = setTimeout(() => setError("Booking ID not found in URL."), 0);
-    return () => clearTimeout(timer);
-  }
-
-  const fetchBooking = async () => {
-    const result = await getBookingById(bookingId);
-    if (result.success) {
-      setBooking(result.booking);
-    } else {
-      setError(result.error || "Failed to fetch booking details.");
+    if (!bookingId) {
+      // Wrap in setTimeout to defer state update after render
+      const timer = setTimeout(() => setError("Booking ID not found in URL."), 0);
+      return () => clearTimeout(timer);
     }
-  };
 
-  fetchBooking();
-}, []);
+    const fetchBooking = async () => {
+      const result = await getBookingById(bookingId);
+      if (result.success) {
+        setBooking(result.booking);
+      } else {
+        setError(result.error || "Failed to fetch booking details.");
+      }
+    };
+
+    fetchBooking();
+  }, []);
 
 
 

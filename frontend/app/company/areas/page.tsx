@@ -20,6 +20,8 @@ import {
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useCompanies } from "@/lib/hooks/useCompanies";
+import { LoadingCard } from "@/components/common/LoadingCard";
+import { ErrorMessage } from "@/components/common/ErrorMessage";
 
 type ServiceArea = {
   city: string;
@@ -54,8 +56,11 @@ export default function Areas() {
     loadCompany();
   }, [getCompanyById]);
 
+  if (loading) return <LoadingCard message="Loading service areas..." />;
+  if (error) return <ErrorMessage message={error} />;
+
   return (
-      <div className="space-y-6">
+    <div className="space-y-6">
         <div className="flex items-center justify-between">
           <div>
             <h1 className="text-2xl font-semibold text-foreground">Service Areas</h1>
@@ -87,31 +92,23 @@ export default function Areas() {
           </Dialog>
         </div>
 
-        {loading && (
-          <p className="text-sm text-muted-foreground">Loading service areas...</p>
-        )}
-        {error && !loading && (
-          <p className="text-sm text-destructive">{error}</p>
-        )}
-
-        {!loading && !error && (
         <div className="grid gap-4">
           {serviceAreas.map((area, index) => (
             <Card key={index} className="hover:shadow-md transition-shadow">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-4">
-                      <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
+                    <div className="h-12 w-12 rounded-xl bg-accent flex items-center justify-center">
                       <MapPin className="h-6 w-6 text-accent-foreground" />
                     </div>
                     <div>
                       <div className="flex items-center gap-2">
                         <h3 className="font-semibold text-lg">{area.city}</h3>
                         <Badge variant="default">
-                            <>
-                              <CheckCircle className="h-3 w-3 mr-1" />
-                              Active
-                            </>
+                          <>
+                            <CheckCircle className="h-3 w-3 mr-1" />
+                            Active
+                          </>
                         </Badge>
                       </div>
                       <p className="text-sm text-muted-foreground mt-1">
@@ -132,7 +129,9 @@ export default function Areas() {
                         <DropdownMenuItem>Edit Area</DropdownMenuItem>
                         <DropdownMenuItem>View Bookings</DropdownMenuItem>
                         <DropdownMenuItem>Toggle Active</DropdownMenuItem>
-                        <DropdownMenuItem className="text-destructive">Delete</DropdownMenuItem>
+                        <DropdownMenuItem className="text-destructive">
+                          Delete
+                        </DropdownMenuItem>
                       </DropdownMenuContent>
                     </DropdownMenu>
                   </div>
@@ -141,7 +140,6 @@ export default function Areas() {
             </Card>
           ))}
         </div>
-        )}
-        </div>
+      </div>
   );
 }

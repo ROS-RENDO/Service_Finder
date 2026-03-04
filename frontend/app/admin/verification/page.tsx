@@ -42,7 +42,7 @@ export default function VerificationPage() {
   const fetchPendingCompanies = async () => {
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch('http://localhost:3000/api/companies?verificationStatus=pending', {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies?verificationStatus=pending`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
@@ -62,7 +62,7 @@ export default function VerificationPage() {
     setVerifying(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3000/api/companies/${companyId}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
@@ -95,15 +95,15 @@ export default function VerificationPage() {
     setVerifying(true)
     try {
       const token = localStorage.getItem('token')
-      const response = await fetch(`http://localhost:3000/api/companies/${selectedCompany.id}`, {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/${selectedCompany.id}`, {
         method: 'PUT',
         headers: {
           'Authorization': `Bearer ${token}`,
           'Content-Type': 'application/json'
         },
-        body: JSON.stringify({ 
+        body: JSON.stringify({
           verificationStatus: 'rejected',
-          rejectionReason: rejectReason 
+          rejectionReason: rejectReason
         })
       })
 
@@ -403,7 +403,7 @@ export default function VerificationPage() {
               <p className="text-gray-600 mb-4">
                 Please provide a reason for rejecting <strong>{selectedCompany.name}</strong>
               </p>
-              
+
               <textarea
                 value={rejectReason}
                 onChange={(e) => setRejectReason(e.target.value)}

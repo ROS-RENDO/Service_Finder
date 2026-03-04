@@ -100,9 +100,9 @@ const getCompanyById = async (req, res, next) => {
     }
 
     // Calculate years in business from createdAt or foundedYear
-    const yearsInBusiness = company.foundedYear 
+    const yearsInBusiness = company.foundedYear
       ? new Date().getFullYear() - company.foundedYear
-      : company.createdAt 
+      : company.createdAt
         ? new Date().getFullYear() - new Date(company.createdAt).getFullYear()
         : 0;
 
@@ -112,11 +112,11 @@ const getCompanyById = async (req, res, next) => {
       name: company.name,
       slug: company.slug,
       description: company.description,
-      
+
       // Media
       logoUrl: company.logoUrl,
       coverImageUrl: company.coverImageUrl,
-      
+
       // Contact info
       phone: company.phone,
       email: company.email,
@@ -125,35 +125,35 @@ const getCompanyById = async (req, res, next) => {
       state: company.state,
       zipCode: company.zipCode,
       country: company.country,
-      
+
       // Location
       coordinate: {
         latitude: company.latitude ? parseFloat(company.latitude) : null,
         longitude: company.longitude ? parseFloat(company.longitude) : null,
       },
       location: company.city || company.address,
-      
+
       // Verification
       verified: company.verificationStatus === 'verified',
       verificationStatus: company.verificationStatus,
       verifiedAt: company.verifiedAt,
-      
+
       // Stats
-      rating: company.ratingSummary?.averageRating 
-        ? parseFloat(company.ratingSummary.averageRating) 
+      rating: company.ratingSummary?.averageRating
+        ? parseFloat(company.ratingSummary.averageRating)
         : null,
       reviewCount: company.ratingSummary?.totalReviews || 0,
       yearsInBusiness,
       employeeCount: company.employeeCount || company.staff?.length || 0, // Use stored value or count staff
-      
+
       // Service areas
       serviceAreas: company.serviceAreas || [],
-      
+
       // Status
       status: company.status,
       Highlights: company.detailHighlights || [],
       service: company.services,
-      
+
       // Timestamps
       createdAt: company.createdAt,
       updatedAt: company.updatedAt
@@ -170,6 +170,7 @@ const getCompanyById = async (req, res, next) => {
 
 const createCompany = async (req, res, next) => {
   try {
+    const userId = BigInt(req.user.id);
     const {
       name,
       description,
@@ -182,9 +183,17 @@ const createCompany = async (req, res, next) => {
       email,
       logoUrl,
       coverImageUrl,
-      establishedYear,
-      
+      foundedYear,
     } = req.body;
+
+    // Check if user already has a company
+    const existingCompany = await prisma.company.findFirst({
+      where: { ownerId: userId }
+    });
+
+    if (existingCompany) {
+      return res.status(400).json({ error: 'User already has a company' });
+    }
 
     const company = await prisma.company.create({
       data: {
@@ -193,14 +202,16 @@ const createCompany = async (req, res, next) => {
         registrationNumber,
         address,
         city,
-        latitude,
-        longitude,
+        latitude: latitude ? parseFloat(latitude) : null,
+        longitude: longitude ? parseFloat(longitude) : null,
         phone,
         email,
-            logoUrl,
-    coverImageUrl,
-    establishedYear,
-        ownerId: req.user.id
+        logoUrl,
+        coverImageUrl,
+        foundedYear: foundedYear ? parseInt(foundedYear) : null,
+        ownerId: userId,
+        status: 'active',
+        verificationStatus: 'pending'
       },
       include: {
         owner: {
@@ -214,8 +225,17 @@ const createCompany = async (req, res, next) => {
     });
 
     res.status(201).json({
+      success: true,
       message: 'Company created successfully',
-      company
+      company: {
+        ...company,
+        id: company.id.toString(),
+        ownerId: company.ownerId.toString(),
+        owner: {
+          ...company.owner,
+          id: company.owner.id.toString()
+        }
+      }
     });
   } catch (error) {
     next(error);
@@ -236,7 +256,7 @@ const updateCompany = async (req, res, next) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    if (company.ownerId !== req.user.id && req.user.role !== 'admin') {
+    if (company.ownerId.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -275,7 +295,7 @@ const deleteCompany = async (req, res, next) => {
       return res.status(404).json({ error: 'Company not found' });
     }
 
-    if (company.ownerId !== req.user.id && req.user.role !== 'admin') {
+    if (company.ownerId.toString() !== req.user.id.toString() && req.user.role !== 'admin') {
       return res.status(403).json({ error: 'Access denied' });
     }
 
@@ -361,8 +381,8 @@ const getCompaniesByServiceType = async (req, res, next) => {
               id: true,
               name: true,
               basePrice: true,
-                durationMin: true,    
-                durationMax: true,
+              durationMin: true,
+              durationMax: true,
             }
           },
           serviceAreas: {
@@ -379,7 +399,7 @@ const getCompaniesByServiceType = async (req, res, next) => {
     // Filter by rating if specified
     let filteredCompanies = companies;
     if (minRating) {
-      filteredCompanies = companies.filter(c => 
+      filteredCompanies = companies.filter(c =>
         c.ratingSummary && parseFloat(c.ratingSummary.averageRating) >= parseFloat(minRating)
       );
     }
@@ -414,50 +434,50 @@ const getCompaniesByServiceType = async (req, res, next) => {
     // Format response
     const currentYear = new Date().getFullYear();
 
-const formattedCompanies = filteredCompanies.map(company => {
-  const prices = (company.services || []).map(s => Number(s.basePrice));
-  const minPrice = prices.length ? Math.min(...prices) : 0;
-  const maxPrice = prices.length ? Math.max(...prices) : 0;
+    const formattedCompanies = filteredCompanies.map(company => {
+      const prices = (company.services || []).map(s => Number(s.basePrice));
+      const minPrice = prices.length ? Math.min(...prices) : 0;
+      const maxPrice = prices.length ? Math.max(...prices) : 0;
 
-  return {
-    id: company.id.toString(),
-    name: company.name,
+      return {
+        id: company.id.toString(),
+        name: company.name,
 
-    logoUrl: company.logoUrl,
-    coverImageUrl: company.coverImageUrl,
+        logoUrl: company.logoUrl,
+        coverImageUrl: company.coverImageUrl,
 
-    rating: company.ratingSummary?.averageRating
-      ? Number(company.ratingSummary.averageRating)
-      : null,
+        rating: company.ratingSummary?.averageRating
+          ? Number(company.ratingSummary.averageRating)
+          : null,
 
-    reviews: company.ratingSummary?.totalReviews ?? 0,
+        reviews: company.ratingSummary?.totalReviews ?? 0,
 
-    location: company.serviceAreas.length > 0 ? 'All Areas' : company.city,
+        location: company.serviceAreas.length > 0 ? 'All Areas' : company.city,
 
-    coordinate: {
-      latitude: company.latitude ? Number(company.latitude) : null,
-      longitude: company.longitude ? Number(company.longitude) : null,
-    },
-    verified: company.verificationStatus === 'verified',
+        coordinate: {
+          latitude: company.latitude ? Number(company.latitude) : null,
+          longitude: company.longitude ? Number(company.longitude) : null,
+        },
+        verified: company.verificationStatus === 'verified',
 
-    yearsInBusiness: company.establishedYear
-      ? currentYear - company.establishedYear
-      : null,
+        yearsInBusiness: company.establishedYear
+          ? currentYear - company.establishedYear
+          : null,
 
-    priceRange: {
-      min: minPrice,
-      max: maxPrice
-    },
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
 
-    description: company.description,
+        description: company.description,
 
-    highlights: Array.isArray(company.cardHighlights)
-  ? company.cardHighlights
-  : [],
+        highlights: Array.isArray(company.cardHighlights)
+          ? company.cardHighlights
+          : [],
 
-    responseTime: 'Usually responds in 1 hour'
-  };
-});
+        responseTime: 'Usually responds in 1 hour'
+      };
+    });
 
 
     res.json({
@@ -609,8 +629,8 @@ const getCompanyDetails = async (req, res, next) => {
         phone: company.phone,
         email: company.email,
         verificationStatus: company.verificationStatus,
-        rating: company.ratingSummary?.averageRating 
-          ? parseFloat(company.ratingSummary.averageRating) 
+        rating: company.ratingSummary?.averageRating
+          ? parseFloat(company.ratingSummary.averageRating)
           : null,
         reviewCount: company.ratingSummary?.totalReviews || 0,
         yearsInBusiness,
@@ -626,6 +646,42 @@ const getCompanyDetails = async (req, res, next) => {
   }
 };
 
+/** GET /api/companies/me - Current user's company (for company_admin dashboard) */
+const getCompanyMe = async (req, res) => {
+  try {
+    const userId = BigInt(req.user.id);
+    const company = await prisma.company.findFirst({
+      where: { ownerId: userId },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        phone: true,
+        address: true,
+        city: true,
+        verificationStatus: true,
+        _count: {
+          select: { staff: true, services: true }
+        }
+      }
+    });
+    if (!company) {
+      return res.status(404).json({ error: 'Company not found' });
+    }
+    const { _count, ...rest } = company;
+    res.json({
+      company: {
+        ...rest,
+        id: company.id.toString(),
+        staffCount: _count.staff,
+        servicesCount: _count.services
+      }
+    });
+  } catch (error) {
+    console.error('getCompanyMe error:', error);
+    res.status(500).json({ error: 'Failed to load company' });
+  }
+};
 
 const getCompanyStaff = async (req, res) => {
   try {
@@ -688,30 +744,30 @@ const getCompanyStaff = async (req, res) => {
         // Note: Reviews are for bookings, not individual staff
         // We'll get the average rating from bookings where this staff was assigned
         const completedBookings = await prisma.serviceRequest.findMany({
-  where: {
-    companyId: company.id,
-    assignedStaffId: staffMember.id,
-    status: 'approved', // only approved/completed requests
-  },
-  include: {
-    company: true, // optional
-    service: true, // optional
-    customer: true, // optional
-    // include the booking and its review
-    service: {
-      include: {
-        bookings: {
           where: {
-            status: 'completed'
+            companyId: company.id,
+            assignedStaffId: staffMember.id,
+            status: 'approved', // only approved/completed requests
           },
           include: {
-            review: true
+            company: true, // optional
+            service: true, // optional
+            customer: true, // optional
+            // include the booking and its review
+            service: {
+              include: {
+                bookings: {
+                  where: {
+                    status: 'completed'
+                  },
+                  include: {
+                    review: true
+                  }
+                }
+              }
+            }
           }
-        }
-      }
-    }
-  }
-});
+        });
 
         // Calculate average rating from completed bookings with reviews
         const reviewedBookings = completedBookings.filter(b => b.review);
@@ -834,8 +890,8 @@ const assignStaffToBooking = async (req, res) => {
     });
 
     if (!staffMember) {
-      return res.status(404).json({ 
-        error: 'Staff member not found or not active in this company' 
+      return res.status(404).json({
+        error: 'Staff member not found or not active in this company'
       });
     }
 
@@ -1135,26 +1191,26 @@ const getCompanyBookings = async (req, res) => {
 const addStaffMember = async (req, res) => {
   try {
     const userId = BigInt(req.user.id);
-    const { 
-      email, 
-      fullName, 
-      phone, 
+    const {
+      email,
+      fullName,
+      phone,
       role, // 'cleaner' or 'supervisor'
       password // Optional - if not provided, generate temporary password
     } = req.body;
 
     // Validate required fields
     if (!email || !fullName || !phone || !role) {
-      return res.status(400).json({ 
-        error: 'Missing required fields: email, fullName, phone, role' 
+      return res.status(400).json({
+        error: 'Missing required fields: email, fullName, phone, role'
       });
     }
 
     // Validate role
     const validRoles = ['cleaner', 'supervisor'];
     if (!validRoles.includes(role)) {
-      return res.status(400).json({ 
-        error: 'Invalid role. Must be "cleaner" or "supervisor"' 
+      return res.status(400).json({
+        error: 'Invalid role. Must be "cleaner" or "supervisor"'
       });
     }
 
@@ -1186,8 +1242,8 @@ const addStaffMember = async (req, res) => {
       });
 
       if (existingStaff) {
-        return res.status(400).json({ 
-          error: 'This user is already a staff member in your company' 
+        return res.status(400).json({
+          error: 'This user is already a staff member in your company'
         });
       }
 
@@ -1251,14 +1307,14 @@ const addStaffMember = async (req, res) => {
     });
   } catch (error) {
     console.error('Error adding staff member:', error);
-    
+
     // Handle unique constraint violation
     if (error.code === 'P2002') {
-      return res.status(400).json({ 
-        error: 'A staff member with this email already exists' 
+      return res.status(400).json({
+        error: 'A staff member with this email already exists'
       });
     }
-    
+
     res.status(500).json({ error: 'Failed to add staff member' });
   }
 };
@@ -1487,8 +1543,8 @@ const removeStaffMember = async (req, res) => {
     });
 
     if (activeRequests > 0) {
-      return res.status(400).json({ 
-        error: `Cannot remove staff member. They have ${activeRequests} active service request(s). Please reassign or complete them first.` 
+      return res.status(400).json({
+        error: `Cannot remove staff member. They have ${activeRequests} active service request(s). Please reassign or complete them first.`
       });
     }
 
@@ -1533,7 +1589,7 @@ const reactivateStaffMember = async (req, res) => {
 
     // Update staff status
     const staffMember = await prisma.companyStaff.update({
-      where: { 
+      where: {
         id: BigInt(id),
       },
       data: {
@@ -1573,6 +1629,7 @@ const reactivateStaffMember = async (req, res) => {
 module.exports = {
   getAllCompanies,
   getCompanyById,
+  getCompanyMe,
   createCompany,
   updateCompany,
   deleteCompany,

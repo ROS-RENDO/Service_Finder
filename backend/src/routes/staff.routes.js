@@ -1,7 +1,10 @@
 const express = require('express');
 const router = express.Router();
-const { getMyAvailability, createAvailability, updateAvailability, deleteAvailability, getPendingServices, approveService, rejectService, getStaffBookings, getBookingById, updateBookingStatus } = require('../controllers/staff.controller');
-const {authenticate , authorize }= require('../middleware/auth')
+const { getStaffMe, getMyAvailability, createAvailability, updateAvailability, deleteAvailability, getPendingServices, approveService, rejectService, getStaffBookings, getBookingById, updateBookingStatus } = require('../controllers/staff.controller');
+const { authenticate, authorize } = require('../middleware/auth');
+
+// 0️⃣ CURRENT STAFF PROFILE (stats, reviews for profile page)
+router.get('/me', authenticate, authorize('staff'), getStaffMe);
 
 // 1️⃣ AVAILABILITY ROUTES
 router.get('/availability/me',authenticate, authorize('staff') , getMyAvailability);

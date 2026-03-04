@@ -1,33 +1,54 @@
+/**
+ * Enhanced Reviews Controller
+ * Uses service layer for business logic
+ */
+
 const prisma = require('../config/database');
+const reviewService = require('../services/review.service');
+const { formatDistanceToNow } = require('date-fns');
 
+/**
+ * Get my reviews (customer)
+ */
+const getMyReviews = async (req, res, next) => {
+  try {
+    const customerId = req.user.id;
 
-const getMyReviews = async (req, res) => {
-  const customerId = req.user.id;
-
-  const reviews = await prisma.review.findMany({
-    where: { customerId },
-    include: {
-      booking: {
-        include: {
-          service: true,
-          company: true,
+    const reviews = await prisma.review.findMany({
+      where: { customerId },
+      include: {
+        booking: {
+          include: {
+            service: true,
+            company: true,
+          },
+        },
+        staff: {
+          include: {
+            user: true,
+          },
         },
       },
-    },
-    orderBy: { createdAt: 'desc' },
-  });
+      orderBy: { createdAt: 'desc' },
+    });
 
-  res.json(reviews);
+    res.json({ reviews });
+  } catch (error) {
+    next(error);
+  }
 };
 
-
+/**
+ * Get all reviews with pagination
+ */
 const getAllReviews = async (req, res, next) => {
   try {
-    const { companyId, customerId, page = 1, limit = 10 } = req.query;
+    const { companyId, customerId, staffId, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
 
     const where = {};
     if (customerId) where.customerId = BigInt(customerId);
+    if (staffId) where.staffId = BigInt(staffId);
 
     // Filter by company through booking relation
     let bookingWhere = {};
@@ -37,7 +58,7 @@ const getAllReviews = async (req, res, next) => {
       prisma.review.findMany({
         where: {
           ...where,
-          booking: bookingWhere
+          booking: bookingWhere,
         },
         skip: parseInt(skip),
         take: parseInt(limit),
@@ -45,8 +66,9 @@ const getAllReviews = async (req, res, next) => {
           customer: {
             select: {
               id: true,
-              fullName: true
-            }
+              fullName: true,
+              avatar: true,
+            },
           },
           booking: {
             select: {
@@ -54,26 +76,36 @@ const getAllReviews = async (req, res, next) => {
               bookingDate: true,
               service: {
                 select: {
-                  name: true
-                }
+                  name: true,
+                },
               },
               company: {
                 select: {
                   id: true,
-                  name: true
-                }
-              }
-            }
-          }
+                  name: true,
+                },
+              },
+            },
+          },
+          staff: {
+            select: {
+              id: true,
+              user: {
+                select: {
+                  fullName: true,
+                },
+              },
+            },
+          },
         },
-        orderBy: { createdAt: 'desc' }
+        orderBy: { createdAt: 'desc' },
       }),
       prisma.review.count({
         where: {
           ...where,
-          booking: bookingWhere
-        }
-      })
+          booking: bookingWhere,
+        },
+      }),
     ]);
 
     res.json({
@@ -82,14 +114,17 @@ const getAllReviews = async (req, res, next) => {
         total,
         page: parseInt(page),
         limit: parseInt(limit),
-        pages: Math.ceil(total / limit)
-      }
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Get review by ID
+ */
 const getReviewById = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -101,16 +136,22 @@ const getReviewById = async (req, res, next) => {
           select: {
             id: true,
             fullName: true,
-            email: true
-          }
+            email: true,
+            avatar: true,
+          },
         },
         booking: {
           include: {
             service: true,
-            company: true
-          }
-        }
-      }
+            company: true,
+          },
+        },
+        staff: {
+          include: {
+            user: true,
+          },
+        },
+      },
     });
 
     if (!review) {
@@ -123,120 +164,110 @@ const getReviewById = async (req, res, next) => {
   }
 };
 
+/**
+ * Create a review (Enhanced with separate company and staff ratings)
+ */
 const createReview = async (req, res, next) => {
   try {
-    const { bookingId, rating, comment } = req.body;
+    const {
+      bookingId,
+      companyRating,
+      companyComment,
+      staffRating,
+      staffComment,
+    } = req.body;
 
-    // Validate rating
-    if (rating < 1 || rating > 5) {
-      return res.status(400).json({ error: 'Rating must be between 1 and 5' });
+    // Validate required fields
+    if (!companyRating) {
+      return res.status(400).json({ error: 'Company rating is required' });
     }
 
-    // Verify booking
-    const booking = await prisma.booking.findUnique({
-      where: { id: BigInt(bookingId) }
+    const review = await reviewService.createReview({
+      bookingId,
+      customerId: req.user.id,
+      companyRating,
+      companyComment,
+      staffRating,
+      staffComment,
     });
-
-    if (!booking) {
-      return res.status(404).json({ error: 'Booking not found' });
-    }
-
-    if (booking.customerId !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    if (booking.status !== 'completed') {
-      return res.status(400).json({ error: 'Can only review completed bookings' });
-    }
-
-    // Check if review already exists
-    const existingReview = await prisma.review.findUnique({
-      where: { bookingId: BigInt(bookingId) }
-    });
-
-    if (existingReview) {
-      return res.status(400).json({ error: 'Review already exists for this booking' });
-    }
-
-    const review = await prisma.review.create({
-      data: {
-        bookingId: BigInt(bookingId),
-        customerId: req.user.id,
-        rating,
-        comment
-      },
-      include: {
-        booking: {
-          include: {
-            service: true,
-            company: true
-          }
-        }
-      }
-    });
-
-    // Update company rating summary
-    await updateCompanyRating(booking.companyId);
 
     res.status(201).json({
+      success: true,
       message: 'Review created successfully',
-      review
+      review,
     });
   } catch (error) {
+    if (
+      error.message.includes('must be between') ||
+      error.message.includes('already exists') ||
+      error.message.includes('Can only review')
+    ) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message === 'Access denied') {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error.message === 'Booking not found') {
+      return res.status(404).json({ error: error.message });
+    }
     next(error);
   }
 };
 
+/**
+ * Update a review
+ */
 const updateReview = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { rating, comment } = req.body;
+    const {
+      companyRating,
+      companyComment,
+      staffRating,
+      staffComment,
+    } = req.body;
 
-    const review = await prisma.review.findUnique({
-      where: { id: BigInt(id) },
-      include: { booking: true }
-    });
+    const updateData = {};
+    if (companyRating !== undefined) updateData.companyRating = companyRating;
+    if (companyComment !== undefined) updateData.companyComment = companyComment;
+    if (staffRating !== undefined) updateData.staffRating = staffRating;
+    if (staffComment !== undefined) updateData.staffComment = staffComment;
 
-    if (!review) {
-      return res.status(404).json({ error: 'Review not found' });
-    }
-
-    if (review.customerId !== req.user.id) {
-      return res.status(403).json({ error: 'Access denied' });
-    }
-
-    const updatedReview = await prisma.review.update({
-      where: { id: BigInt(id) },
-      data: { rating, comment },
-      include: {
-        booking: {
-          include: {
-            service: true,
-            company: true
-          }
-        }
-      }
-    });
-
-    // Update company rating summary
-    await updateCompanyRating(review.booking.companyId);
+    const updatedReview = await reviewService.updateReview(
+      id,
+      req.user.id,
+      updateData
+    );
 
     res.json({
+      success: true,
       message: 'Review updated successfully',
-      review: updatedReview
+      review: updatedReview,
     });
   } catch (error) {
+    if (error.message.includes('must be between')) {
+      return res.status(400).json({ error: error.message });
+    }
+    if (error.message === 'Access denied') {
+      return res.status(403).json({ error: error.message });
+    }
+    if (error.message === 'Review not found') {
+      return res.status(404).json({ error: error.message });
+    }
     next(error);
   }
 };
 
+/**
+ * Delete and review
+ */
 const deleteReview = async (req, res, next) => {
   try {
     const { id } = req.params;
 
     const review = await prisma.review.findUnique({
       where: { id: BigInt(id) },
-      include: { booking: true }
+      include: { booking: true },
     });
 
     if (!review) {
@@ -248,129 +279,87 @@ const deleteReview = async (req, res, next) => {
     }
 
     await prisma.review.delete({
-      where: { id: BigInt(id) }
+      where: { id: BigInt(id) },
     });
 
-    // Update company rating summary
-    await updateCompanyRating(review.booking.companyId);
+    // Update ratings
+    await reviewService.updateCompanyRating(review.booking.companyId);
+    if (review.staffId) {
+      await reviewService.updateStaffRating(review.staffId);
+    }
 
-    res.json({ message: 'Review deleted successfully' });
+    res.json({ success: true, message: 'Review deleted successfully' });
   } catch (error) {
     next(error);
   }
 };
 
-// Helper function to update company rating
-async function updateCompanyRating(companyId) {
-  const reviews = await prisma.review.findMany({
-    where: {
-      booking: {
-        companyId: companyId
-      }
-    },
-    select: {
-      rating: true
-    }
-  });
-
-  const totalReviews = reviews.length;
-  const averageRating = totalReviews > 0
-    ? reviews.reduce((sum, r) => sum + r.rating, 0) / totalReviews
-    : null;
-
-  await prisma.companyRatingSummary.upsert({
-    where: { companyId },
-    create: {
-      companyId,
-      averageRating,
-      totalReviews,
-      lastUpdated: new Date()
-    },
-    update: {
-      averageRating,
-      totalReviews,
-      lastUpdated: new Date()
-    }
-  });
-}
-
-const { formatDistanceToNow } = require('date-fns'); // npm install date-fns
-
+/**
+ * Get reviews for a specific company
+ */
 const getReviewsByCompany = async (req, res, next) => {
   try {
     const { companyId } = req.params;
     const page = parseInt(req.query.page) || 1;
     const limit = parseInt(req.query.limit) || 10;
-    const skip = (page - 1) * limit;
 
-    // Count total reviews for company
-    const total = await prisma.review.count({
-      where: {
-        booking: {
-          companyId: BigInt(companyId)
-        }
-      }
-    });
+    const result = await reviewService.getCompanyReviews(companyId, page, limit);
 
-    // Fetch reviews
-    const reviews = await prisma.review.findMany({
-      where: {
-        booking: {
-          companyId: BigInt(companyId)
-        }
-      },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            fullName: true,
-            avatar: true
-            
-          }
-        },
-        booking: {
-          select: {
-            id: true,
-            service: {
-              select: {
-                id: true,
-                name: true
-              }
-            }
-          }
-        }
-      },
-      orderBy: {
-        createdAt: 'desc'
-      },
-      skip,
-      take: limit
-    });
-
-    // Map reviews to add timeAgo
-    const formattedReviews = reviews.map(review => ({
+    // Format reviews with timeAgo
+    const formattedReviews = result.reviews.map((review) => ({
       id: review.id.toString(),
-      rating: review.rating,
-      comment: review.comment,
+      companyRating: review.companyRating,
+      companyComment: review.companyComment,
+      staffRating: review.staffRating,
+      staffComment: review.staffComment,
       customer: review.customer,
       booking: review.booking,
+      staff: review.staff,
       createdAt: review.createdAt,
-      timeAgo: formatDistanceToNow(new Date(review.createdAt), { addSuffix: true }) // ← here
+      timeAgo: formatDistanceToNow(new Date(review.createdAt), { addSuffix: true }),
     }));
 
     res.json({
-      total,
-      page,
-      limit,
-      totalPages: Math.ceil(total / limit),
-      reviews: formattedReviews
+      ...result,
+      reviews: formattedReviews,
     });
   } catch (error) {
     next(error);
   }
 };
 
+/**
+ * Get reviews for a specific staff member
+ */
+const getReviewsByStaff = async (req, res, next) => {
+  try {
+    const { staffId } = req.params;
+    const page = parseInt(req.query.page) || 1;
+    const limit = parseInt(req.query.limit) || 10;
 
+    const result = await reviewService.getStaffReviews(staffId, page, limit);
+
+    // Format reviews with timeAgo
+    const formattedReviews = result.reviews.map((review) => ({
+      id: review.id.toString(),
+      staffRating: review.staffRating,
+      staffComment: review.staffComment,
+      companyRating: review.companyRating,
+      companyComment: review.companyComment,
+      customer: review.customer,
+      booking: review.booking,
+      createdAt: review.createdAt,
+      timeAgo: formatDistanceToNow(new Date(review.createdAt), { addSuffix: true }),
+    }));
+
+    res.json({
+      ...result,
+      reviews: formattedReviews,
+    });
+  } catch (error) {
+    next(error);
+  }
+};
 
 module.exports = {
   getAllReviews,
@@ -379,5 +368,6 @@ module.exports = {
   updateReview,
   deleteReview,
   getMyReviews,
-  getReviewsByCompany
+  getReviewsByCompany,
+  getReviewsByStaff,
 };

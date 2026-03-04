@@ -1,29 +1,31 @@
+/* eslint-disable react-hooks/static-components */
 "use client"
-import { useState } from "react";
+import { useState, useMemo } from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
-import { 
-  Search, Star, Clock, MapPin, ArrowRight, ArrowLeft, Shield, X,
-  LayoutGrid, Map, CheckCircle2, Loader2
+import {
+  Search, ArrowRight, ArrowLeft, X,
+  LayoutGrid, Map, Loader2, Star, Shield, MapPin, Clock, CheckCircle2
 } from "lucide-react";
 import { Navbar } from "@/components/layout/Navbar";
 import { Footer } from "@/components/layout/Footer";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
-import CompanyMap from "@/components/service/CompanyMap";
 import Image from "next/image";
 import { useCompaniesByServiceType } from "@/lib/hooks/useCompanies";
-import { categoryVisual } from "@/lib/visuals/categoryVisuals";
-import { serviceTypeVisual } from "@/lib/visuals/serviceTypeVisuals";
+import { getServiceTypeIcon, getServiceTypeGradient } from "@/lib/visuals/serviceTypeVisuals";
+import { LoadingCard } from "@/components/common/LoadingCard";
+import { ErrorMessage } from "@/components/common/ErrorMessage";
+import CompanyMap from "@/components/service/CompanyMap";
 
 export default function CompaniesPage() {
   const params = useParams();
   const router = useRouter();
   const categorySlug = params.category as string;
   const serviceTypeSlug = params.serviceType as string;
-  
+
   const [searchQuery, setSearchQuery] = useState("");
   const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [selectedCity, setSelectedCity] = useState("");
@@ -32,15 +34,15 @@ export default function CompaniesPage() {
   const [currentPage, setCurrentPage] = useState(1);
 
   // Fetch companies using the hook
-  const { 
-    companies, 
-    category, 
-    serviceType, 
-    pagination, 
-    loading, 
+  const {
+    companies,
+    category,
+    serviceType,
+    pagination,
+    loading,
     error,
-    refetch 
-  } = useCompaniesByServiceType({ 
+    refetch
+  } = useCompaniesByServiceType({
     categorySlug,
     serviceTypeSlug,
     search: searchQuery,
@@ -51,9 +53,9 @@ export default function CompaniesPage() {
     limit: 9
   });
 
-  // Find visual data
-  const categoryData = categoryVisual.find(v => v.slug === categorySlug);
-  const serviceTypeData = serviceTypeVisual.find(v => v.slug === serviceTypeSlug);
+  // Get dynamic visual data - memoized to prevent recreation during render
+  const ServiceTypeIcon = useMemo(() => getServiceTypeIcon(serviceTypeSlug, serviceType?.name || ""), [serviceTypeSlug, serviceType?.name]);
+  const gradient = useMemo(() => getServiceTypeGradient(serviceTypeSlug), [serviceTypeSlug]);
 
   // Loading state
   if (loading && companies.length === 0) {
@@ -108,14 +110,12 @@ export default function CompaniesPage() {
     );
   }
 
-  // Get visual data with fallbacks
-  const ServiceTypeIcon = serviceTypeData?.icon;
-  const gradient = serviceTypeData?.gradient || 'from-blue-500/90 to-sky-600/90';
+
 
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
-      
+
       <main className="pt-2">
         <motion.div
           initial={{ opacity: 0, x: 50 }}
@@ -133,11 +133,11 @@ export default function CompaniesPage() {
                 <ArrowLeft className="w-4 h-4 mr-2" />
                 Back to Service Types
               </Button>
-              
+
               <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
                 <div className="flex items-center gap-4">
                   <div className="w-16 h-16 rounded-2xl bg-white/20 backdrop-blur-sm flex items-center justify-center">
-                    {ServiceTypeIcon && <ServiceTypeIcon className="w-8 h-8" />}
+                    <ServiceTypeIcon className="w-8 h-8" />
                   </div>
                   <div>
                     <Badge className="bg-white/20 text-white border-white/30 mb-2">
@@ -151,7 +151,7 @@ export default function CompaniesPage() {
                     </p>
                   </div>
                 </div>
-                
+
                 <div className="flex items-center gap-3">
                   {/* View Toggle */}
                   <div className="flex bg-white/20 rounded-xl p-1">
@@ -174,7 +174,7 @@ export default function CompaniesPage() {
                       Map
                     </Button>
                   </div>
-                  
+
                   {/* Search */}
                   <div className="relative w-full md:w-80">
                     <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-muted-foreground" />
@@ -269,7 +269,7 @@ export default function CompaniesPage() {
                               />
                             )}
                             <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-                            
+
                             {/* Logo */}
                             {company.logoUrl && (
                               <div className="absolute bottom-3 left-3">
@@ -285,7 +285,7 @@ export default function CompaniesPage() {
                                 />
                               </div>
                             )}
-                            
+
                             {/* Verified Badge */}
                             {company.verificationStatus && (
                               <div className="absolute top-3 right-3">
@@ -402,11 +402,11 @@ export default function CompaniesPage() {
                     >
                       <ArrowLeft className="w-4 h-4" />
                     </Button>
-                    
+
                     <span className="text-sm text-muted-foreground">
                       Page {currentPage} of {pagination.pages}
                     </span>
-                    
+
                     <Button
                       variant="outline"
                       disabled={currentPage === pagination.pages}

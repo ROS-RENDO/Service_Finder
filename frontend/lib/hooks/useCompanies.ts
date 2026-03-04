@@ -84,22 +84,22 @@ export function useCompanies(options: UseCompaniesOptions = {}) {
     setError(null)
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/${id}`)
-      
+
       console.log('Company API Response:', response.status) // Debug log
-      
+
       if (response.ok) {
         const data = await response.json()
-        
+
         // Try both possible response structures
         const companyData = data.data || data.company
-        
+
         if (companyData) {
           return { success: true, company: companyData }
         } else {
           return { success: false, error: 'Invalid response structure' }
         }
       }
-      
+
       const errorData = await response.json().catch(() => ({}))
       return { success: false, error: errorData.message || 'Company not found' }
     } catch (err) {
@@ -110,14 +110,170 @@ export function useCompanies(options: UseCompaniesOptions = {}) {
     }
   }
 
+  const getStaffMemberById = async (staffId: string) => {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff/${staffId}`,
+        {
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include',
+        }
+      )
+
+      if (response.ok) {
+        const data = await response.json()
+        return { success: true, staff: data.staff || data }
+      }
+
+      const errorData = await response.json().catch(() => ({}))
+      return { success: false, error: errorData.error || 'Staff member not found' }
+    } catch (err) {
+      return { success: false, error: 'An error occurred' }
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  const updateStaffMember = async (staffId: string, updates: any) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff/${staffId}`,
+        {
+          method: 'PUT',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json',
+          },
+          credentials: 'include',
+          body: JSON.stringify(updates),
+        }
+      )
+
+      if (response.ok) {
+        return { success: true }
+      }
+
+      const errorData = await response.json().catch(() => ({}))
+      return { success: false, error: errorData.error || 'Failed to update staff member' }
+    } catch (err) {
+      return { success: false, error: 'An error occurred' }
+    }
+  }
+
+  const removeStaffMember = async (staffId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff/${staffId}`,
+        {
+          method: 'DELETE',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include',
+        }
+      )
+
+      if (response.ok) {
+        return { success: true }
+      }
+
+      const errorData = await response.json().catch(() => ({}))
+      return { success: false, error: errorData.error || 'Failed to remove staff member' }
+    } catch (err) {
+      return { success: false, error: 'An error occurred' }
+    }
+  }
+
+  const reactivateStaffMember = async (staffId: string) => {
+    try {
+      const token = localStorage.getItem('token')
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff/${staffId}/reactivate`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          credentials: 'include',
+        }
+      )
+
+      if (response.ok) {
+        return { success: true }
+      }
+
+      const errorData = await response.json().catch(() => ({}))
+      return { success: false, error: errorData.error || 'Failed to reactivate staff member' }
+    } catch (err) {
+      return { success: false, error: 'An error occurred' }
+    }
+  }
+
   return {
     companies,
     loading,
     error,
     pagination,
     fetchCompanies,
-    getCompanyById
+    getCompanyById,
+    getStaffMemberById,
+    updateStaffMember,
+    removeStaffMember,
+    reactivateStaffMember,
   }
+}
+
+/** Current user's company (company_admin). For dashboard and company-scoped data. */
+export function useCompanyMe(options: { autoFetch?: boolean } = {}) {
+  const { autoFetch = true } = options
+  const [company, setCompany] = useState<{
+    id: string
+    name: string
+    email?: string
+    phone?: string
+    address?: string
+    city?: string
+    verificationStatus?: string
+    staffCount: number
+    servicesCount: number
+  } | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchMe = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/me`, {
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
+      })
+      if (!response.ok) {
+        setError("Failed to load company")
+        return
+      }
+      const data = await response.json()
+      setCompany(data.company ?? null)
+    } catch {
+      setError("Failed to load company")
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  useEffect(() => {
+    if (autoFetch) fetchMe()
+  }, [autoFetch])
+
+  return { company, loading, error, fetchMe }
 }
 
 export function useCompaniesByServiceType(options: UseCompaniesByServiceTypeOptions) {

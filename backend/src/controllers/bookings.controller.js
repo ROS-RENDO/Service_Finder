@@ -1,21 +1,36 @@
-const prisma = require("../config/database");
+/**
+ * Enhanced Bookings Controller
+ * Uses service layer for business logic
+ */
 
+const bookingService = require('../services/booking.service');
+const prisma = require('../config/database');
+
+/**
+ * Get all bookings with pagination
+ */
 const getAllBookings = async (req, res, next) => {
   try {
-    const { customerId, companyId, status, page = 1, limit = 10 } = req.query;
+    const { customerId, companyId, status, staffId, page = 1, limit = 10 } = req.query;
     const skip = (page - 1) * limit;
 
     const where = {};
 
     // Regular users can only see their own bookings
-    if (req.user.role === "customer") {
+    if (req.user.role === 'customer') {
       where.customerId = req.user.id;
     } else if (customerId) {
       where.customerId = BigInt(customerId);
     }
 
+    // Filter by company
     if (companyId) where.companyId = BigInt(companyId);
+
+    // Filter by status
     if (status) where.status = status;
+
+    // Filter by assigned staff
+    if (staffId) where.assignedStaffId = BigInt(staffId);
 
     const [bookings, total] = await Promise.all([
       prisma.booking.findMany({
@@ -47,10 +62,21 @@ const getAllBookings = async (req, res, next) => {
               durationMin: true,
             },
           },
+          assignedStaff: {
+            include: {
+              user: {
+                select: {
+                  id: true,
+                  fullName: true,
+                  phone: true,
+                },
+              },
+            },
+          },
           payment: true,
           review: true,
         },
-        orderBy: { createdAt: "desc" },
+        orderBy: { createdAt: 'desc' },
       }),
       prisma.booking.count({ where }),
     ]);
@@ -69,64 +95,35 @@ const getAllBookings = async (req, res, next) => {
   }
 };
 
+/**
+ * Get booking by ID
+ */
 const getBookingById = async (req, res, next) => {
   try {
     const { id } = req.params;
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: BigInt(id) },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-            phone: true,
-          },
-        },
-        company: {
-          select: {
-            id: true,
-            name: true,
-            phone: true,
-            email: true,
-            address: true,
-          },
-        },
-        service: {
-          include: {
-            serviceType: {
-              include: {
-                category: true,
-              },
-            },
-          },
-        },
-
-        payment: true,
-        review: true,
-        cancellation: true,
-        statusLogs: {
-          orderBy: { changedAt: "desc" },
-        },
-      },
-    });
+    const booking = await bookingService.getById(
+      id,
+      req.user.id,
+      req.user.role
+    );
 
     if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-
-    // Check access rights
-    if (req.user.role === "customer" && booking.customerId !== req.user.id) {
-      return res.status(403).json({ error: "Access denied" });
+      return res.status(404).json({ error: 'Booking not found' });
     }
 
     res.json({ booking });
   } catch (error) {
+    if (error.message === 'Access denied') {
+      return res.status(403).json({ error: 'Access denied' });
+    }
     next(error);
   }
 };
 
+/**
+ * Create a new booking
+ */
 const createBooking = async (req, res, next) => {
   try {
     const {
@@ -146,12 +143,13 @@ const createBooking = async (req, res, next) => {
     });
 
     if (!service) {
-      return res.status(404).json({ error: "Service not found" });
+      return res.status(404).json({ error: 'Service not found' });
     }
 
     if (!service.isActive) {
-      return res.status(400).json({ error: "Service is not available" });
+      return res.status(400).json({ error: 'Service is not available' });
     }
+
     // Build start time
     const start = new Date(`${bookingDate}T${startTime}:00Z`);
 
@@ -160,9 +158,7 @@ const createBooking = async (req, res, next) => {
 
     const PLATFORM_FEE_PERCENT = 10;
     const basePrice = Number(service.basePrice);
-    const platformFee = Number(
-      (basePrice * PLATFORM_FEE_PERCENT) / 100,
-    ).toFixed(2);
+    const platformFee = Number((basePrice * PLATFORM_FEE_PERCENT) / 100).toFixed(2);
     const companyEarnings = Number(basePrice - platformFee).toFixed(2);
     const totalPrice = Number((basePrice + Number(platformFee)).toFixed(2));
 
@@ -180,7 +176,7 @@ const createBooking = async (req, res, next) => {
         totalPrice: totalPrice,
         platformFee,
         companyEarnings,
-        status: "pending",
+        status: 'pending',
       },
       include: {
         customer: {
@@ -205,14 +201,14 @@ const createBooking = async (req, res, next) => {
     await prisma.bookingStatusLog.create({
       data: {
         bookingId: booking.id,
-        newStatus: "pending",
+        newStatus: 'pending',
         changedBy: req.user.id,
       },
     });
 
     res.status(201).json({
       success: true,
-      message: "Booking created successfully",
+      message: 'Booking created successfully',
       data: {
         id: booking.id.toString(),
         customerId: booking.customerId.toString(),
@@ -241,60 +237,172 @@ const createBooking = async (req, res, next) => {
   }
 };
 
+/**
+ * Update booking status (generic - use specific endpoints when possible)
+ */
 const updateBookingStatus = async (req, res, next) => {
   try {
     const { id } = req.params;
     const { status } = req.body;
 
-    const booking = await prisma.booking.findUnique({
-      where: { id: BigInt(id) },
-    });
-
-    if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
-    }
-
-    // Update booking status
-    const updatedBooking = await prisma.booking.update({
-      where: { id: BigInt(id) },
-      data: { status },
-      include: {
-        customer: {
-          select: {
-            id: true,
-            fullName: true,
-            email: true,
-          },
-        },
-        company: {
-          select: {
-            id: true,
-            name: true,
-          },
-        },
-        service: true,
-      },
-    });
-
-    // Create status log
-    await prisma.bookingStatusLog.create({
-      data: {
-        bookingId: BigInt(id),
-        oldStatus: booking.status,
-        newStatus: status,
-        changedBy: req.user.id,
-      },
-    });
+    const updatedBooking = await bookingService.updateStatus(
+      id,
+      status,
+      req.user.id
+    );
 
     res.json({
-      message: "Booking status updated successfully",
+      message: 'Booking status updated successfully',
       booking: updatedBooking,
     });
   } catch (error) {
+    if (error.message.includes('Invalid status transition')) {
+      return res.status(400).json({ error: error.message });
+    }
     next(error);
   }
 };
 
+/**
+ * Assign staff to booking (Company Admin only)
+ */
+const assignStaff = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { staffId } = req.body;
+
+    if (!staffId) {
+      return res.status(400).json({ error: 'staffId is required' });
+    }
+
+    const booking = await bookingService.assignStaff(id, staffId, req.user.id);
+
+    res.json({
+      success: true,
+      message: 'Staff assigned successfully',
+      booking,
+    });
+  } catch (error) {
+    if (error.message.includes('not found') || error.message.includes('only assign')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Start job (Staff only)
+ */
+const startJob = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Get staff ID from user
+    const staff = await prisma.companyStaff.findFirst({
+      where: { userId: req.user.id },
+    });
+
+    if (!staff) {
+      return res.status(403).json({ error: 'You are not registered as staff' });
+    }
+
+    const booking = await bookingService.startJob(id, staff.id);
+
+    res.json({
+      success: true,
+      message: 'Job started successfully',
+      booking,
+    });
+  } catch (error) {
+    if (
+      error.message.includes('not assigned') ||
+      error.message.includes('Invalid status transition')
+    ) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Update job progress (Staff only)
+ */
+const updateProgress = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+    const { progressPercent, staffNotes } = req.body;
+
+    // Validate progressPercent
+    if (progressPercent === undefined || progressPercent < 0 || progressPercent > 100) {
+      return res.status(400).json({ error: 'progressPercent must be between 0 and 100' });
+    }
+
+    // Get staff ID from user
+    const staff = await prisma.companyStaff.findFirst({
+      where: { userId: req.user.id },
+    });
+
+    if (!staff) {
+      return res.status(403).json({ error: 'You are not registered as staff' });
+    }
+
+    const booking = await bookingService.updateProgress(
+      id,
+      staff.id,
+      progressPercent,
+      staffNotes
+    );
+
+    res.json({
+      success: true,
+      message: 'Progress updated successfully',
+      booking,
+    });
+  } catch (error) {
+    if (error.message.includes('not assigned') || error.message.includes('only update')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Complete job (Staff only)
+ */
+const completeJob = async (req, res, next) => {
+  try {
+    const { id } = req.params;
+
+    // Get staff ID from user
+    const staff = await prisma.companyStaff.findFirst({
+      where: { userId: req.user.id },
+    });
+
+    if (!staff) {
+      return res.status(403).json({ error: 'You are not registered as staff' });
+    }
+
+    const booking = await bookingService.completeJob(id, staff.id);
+
+    res.json({
+      success: true,
+      message: 'Job completed successfully',
+      booking,
+    });
+  } catch (error) {
+    if (
+      error.message.includes('not assigned') ||
+      error.message.includes('Invalid status transition')
+    ) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Cancel booking
+ */
 const cancelBooking = async (req, res, next) => {
   try {
     const { id } = req.params;
@@ -305,22 +413,23 @@ const cancelBooking = async (req, res, next) => {
     });
 
     if (!booking) {
-      return res.status(404).json({ error: "Booking not found" });
+      return res.status(404).json({ error: 'Booking not found' });
     }
 
-    if (booking.customerId !== req.user.id && req.user.role !== "admin") {
-      return res.status(403).json({ error: "Access denied" });
+    if (booking.customerId !== req.user.id && req.user.role !== 'admin') {
+      return res.status(403).json({ error: 'Access denied' });
     }
 
-    if (booking.status === "cancelled" || booking.status === "completed") {
-      return res.status(400).json({ error: "Cannot cancel this booking" });
+    if (booking.status === 'cancelled' || booking.status === 'completed') {
+      return res.status(400).json({ error: 'Cannot cancel this booking' });
     }
 
-    // Update booking
-    const updatedBooking = await prisma.booking.update({
-      where: { id: BigInt(id) },
-      data: { status: "cancelled" },
-    });
+    // Use service to update status (validates transition)
+    const updatedBooking = await bookingService.updateStatus(
+      id,
+      'cancelled',
+      req.user.id
+    );
 
     // Create cancellation record
     await prisma.cancellation.create({
@@ -331,19 +440,76 @@ const cancelBooking = async (req, res, next) => {
       },
     });
 
-    // Create status log
-    await prisma.bookingStatusLog.create({
-      data: {
-        bookingId: BigInt(id),
-        oldStatus: booking.status,
-        newStatus: "cancelled",
-        changedBy: req.user.id,
-      },
+    res.json({
+      message: 'Booking cancelled successfully',
+      booking: updatedBooking,
+    });
+  } catch (error) {
+    if (error.message.includes('Invalid status transition')) {
+      return res.status(400).json({ error: error.message });
+    }
+    next(error);
+  }
+};
+
+/**
+ * Get staff's assigned bookings
+ */
+const getMyAssignedBookings = async (req, res, next) => {
+  try {
+    // Get staff record for current user
+    const staff = await prisma.companyStaff.findFirst({
+      where: { userId: req.user.id },
     });
 
+    if (!staff) {
+      return res.status(403).json({ error: 'You are not registered as staff' });
+    }
+
+    const { status, page = 1, limit = 10 } = req.query;
+    const skip = (page - 1) * limit;
+
+    const where = {
+      assignedStaffId: staff.id,
+    };
+
+    if (status) where.status = status;
+
+    const [bookings, total] = await Promise.all([
+      prisma.booking.findMany({
+        where,
+        skip: parseInt(skip),
+        take: parseInt(limit),
+        include: {
+          customer: {
+            select: {
+              id: true,
+              fullName: true,
+              phone: true,
+            },
+          },
+          company: {
+            select: {
+              id: true,
+              name: true,
+            },
+          },
+          service: true,
+          payment: true,
+        },
+        orderBy: { bookingDate: 'asc' },
+      }),
+      prisma.booking.count({ where }),
+    ]);
+
     res.json({
-      message: "Booking cancelled successfully",
-      booking: updatedBooking,
+      bookings,
+      pagination: {
+        total,
+        page: parseInt(page),
+        limit: parseInt(limit),
+        pages: Math.ceil(total / limit),
+      },
     });
   } catch (error) {
     next(error);
@@ -355,5 +521,10 @@ module.exports = {
   getBookingById,
   createBooking,
   updateBookingStatus,
+  assignStaff,
+  startJob,
+  updateProgress,
+  completeJob,
   cancelBooking,
+  getMyAssignedBookings,
 };

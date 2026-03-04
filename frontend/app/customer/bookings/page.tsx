@@ -22,8 +22,6 @@ import {
 import { PageHeader } from "@/components/common/PageHeader";
 import { StatusBadge } from "@/components/common/StatusBadge";
 import { EmptyState } from "@/components/common/EmptyState";
-import { bookings, payments } from "@/data/mockData";
-import { usePayments } from "@/lib/hooks/usePayments";
 import { useBookings } from "@/lib/hooks/useBookings";
 import { LoadingCard } from "@/components/common/LoadingCard";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
@@ -46,7 +44,7 @@ export default function BookingsPage() {
 
       switch (filterStatus) {
         case "upcoming":
-          return bookingDate >= today && booking.status !== "canceled";
+          return bookingDate >= today && booking.status !== "cancelled";
         case "past":
           return bookingDate < today || booking.status === "completed";
         default:

@@ -1,4 +1,4 @@
-"use client"
+"use client";
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
@@ -6,13 +6,6 @@ import ChatBubble from "@/components/messages/ChatBubble";
 import ConversationItem from "@/components/messages/ConversationItem";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
-import {
-  conversations,
-  messages,
-  workers,
-  currentUserId,
-  Message,
-} from "@/data/mockData";
 import {
   Send,
   ArrowLeft,
@@ -24,9 +17,14 @@ import {
   Smile,
   MessageCircle,
 } from "lucide-react";
+import { useConversations, useMessages } from "@/lib/hooks/useChat";
+import { useAuthContext } from "@/lib/contexts/AuthContext";
 
 const Messages = () => {
   const searchParams = useSearchParams();
+  const { user } = useAuthContext();
+  const { conversations } = useConversations();
+
   const [activeConversationId, setActiveConversationId] = useState<
     string | null
   >(null);
@@ -34,86 +32,50 @@ const Messages = () => {
   const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const messagesList =
-    activeConversationId && messages[activeConversationId]
-      ? messages[activeConversationId]
-      : [];
+  const { messages, sendMessage } = useMessages(
+    activeConversationId || undefined,
+  );
 
   const activeConversation = conversations.find(
-    (c) => c.id === activeConversationId
+    (c) => c.id === activeConversationId,
   );
-  const activeWorker = activeConversation
-    ? workers.find((w) => w.id === activeConversation.workerId)
-    : null;
+  const displayUser = activeConversation?.otherUser || null;
 
   useEffect(() => {
     const conversationParam = searchParams.get("conversation");
-    const newWorkerParam = searchParams.get("new");
 
     if (conversationParam) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveConversationId(conversationParam);
-      setShowMobileChat(true);
-    } else if (newWorkerParam) {
-      const existingConv = conversations.find(
-        (c) => c.workerId === newWorkerParam
-      );
-      if (existingConv) {
-        setActiveConversationId(existingConv.id);
-      } else {
-        setActiveConversationId("new-" + newWorkerParam);
-      }
       setShowMobileChat(true);
     } else if (conversations.length > 0 && !activeConversationId) {
       setActiveConversationId(conversations[0].id);
     }
-  }, [searchParams]);
+  }, [searchParams, conversations, activeConversationId]);
 
+  useEffect(() => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ behavior: "smooth" });
+    }
+  }, [messages]);
 
-  const handleSend = () => {
+  const handleSend = async () => {
     if (!newMessage.trim()) return;
 
-    const timestamp = new Date();
-    const newMsg: Message = {
-      id: `m-${timestamp.getTime()}`,
-      senderId: currentUserId,
-      text: newMessage,
-      timestamp: timestamp,
-      isRead: false,
-    };
+    const recipientId = activeConversation?.otherUser?.id;
 
-    if (activeConversationId) {
-      // eslint-disable-next-line react-hooks/immutability
-      messages[activeConversationId] = [...messagesList, newMsg];
+    const result = await sendMessage({
+      content: newMessage,
+      conversationId: activeConversationId || undefined,
+      recipientId: activeConversationId ? undefined : recipientId,
+    });
+
+    if (result.success && !activeConversationId && result.conversationId) {
+      setActiveConversationId(result.conversationId);
     }
+
     setNewMessage("");
-
-    // Simulate response
-    setTimeout(() => {
-      const responseMsg: Message = {
-        id: `m-${timestamp.getTime() + 1}`,
-        senderId: activeWorker?.id || "1",
-        text: "Thanks for your message! I'll get back to you shortly.",
-        timestamp: new Date(),
-        isRead: false,
-      };
-      if (activeConversationId) {
-        messages[activeConversationId] = [
-          ...messages[activeConversationId],
-          responseMsg,
-        ];
-      }
-    }, 1500);
   };
-
-  const getNewWorker = () => {
-    const newWorkerId = searchParams.get("new");
-    if (newWorkerId) {
-      return workers.find((w) => w.id === newWorkerId);
-    }
-    return null;
-  };
-
-  const displayWorker = activeWorker || getNewWorker();
 
   return (
     <div className="min-h-screen bg-background">
@@ -166,7 +128,7 @@ const Messages = () => {
                 showMobileChat ? "flex" : "hidden md:flex"
               }`}
             >
-              {displayWorker ? (
+              {displayUser ? (
                 <>
                   {/* Chat Header */}
                   <div className="flex items-center gap-4 p-4 border-b border-border bg-card">
@@ -178,24 +140,30 @@ const Messages = () => {
                     </button>
 
                     <div className="relative">
-                      <Image
-                        width={200}
-                        height={200}
-                        src={displayWorker.avatar}
-                        alt={displayWorker.name}
-                        className="h-10 w-10 rounded-full object-cover"
-                      />
-                      {displayWorker.isOnline && (
-                        <span className="absolute bottom-0 right-0 h-3 w-3 rounded-full border-2 border-card bg-success" />
+                      {displayUser.avatar ? (
+                        // eslint-disable-next-line @next/next/no-img-element
+                        <img
+                          src={displayUser.avatar}
+                          alt={displayUser.name}
+                          className="h-10 w-10 rounded-full object-cover"
+                        />
+                      ) : (
+                        <div className="h-10 w-10 rounded-full bg-muted flex items-center justify-center text-sm font-semibold">
+                          {displayUser.name
+                            .split(" ")
+                            .map((n) => n[0])
+                            .join("")
+                            .slice(0, 2)}
+                        </div>
                       )}
                     </div>
 
                     <div className="flex-1 min-w-0">
                       <h2 className="font-semibold text-foreground truncate">
-                        {displayWorker.name}
+                        {displayUser.name}
                       </h2>
                       <p className="text-xs text-muted-foreground">
-                        {displayWorker.isOnline ? "Online" : "Offline"}
+                        {displayUser.role}
                       </p>
                     </div>
 
@@ -226,14 +194,18 @@ const Messages = () => {
 
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30">
-                    {messagesList.length > 0 ? (
-                      messagesList.map((msg) => (
-                        <ChatBubble key={msg.id} message={msg} />
+                    {messages.length > 0 ? (
+                      messages.map((msg) => (
+                        <ChatBubble
+                          key={msg.id}
+                          message={msg}
+                          currentUserId={user ? String(user.id) : null}
+                        />
                       ))
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
                         <p className="text-sm">
-                          Start a conversation with {displayWorker.name}
+                          Start a conversation with {displayUser.name}
                         </p>
                       </div>
                     )}
@@ -282,7 +254,7 @@ const Messages = () => {
                         onClick={handleSend}
                         size="icon"
                         className="h-10 w-10 rounded-full"
-                        disabled={!newMessage.trim()}
+                        disabled={!newMessage.trim() || !displayUser}
                       >
                         <Send className="h-5 w-5" />
                       </Button>

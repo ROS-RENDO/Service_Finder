@@ -38,13 +38,13 @@ export function useCategories(): UseCategoriesReturn {
       setError(null);
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`);
-      
+
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setCategories(data.data);
       } else {
@@ -90,8 +90,8 @@ export function useCategory(slug: string): UseCategoryReturn {
       setLoading(true);
       setError(null);
 
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/categories/${slug}`);
-      
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories/${slug}`);
+
       if (!response.ok) {
         if (response.status === 404) {
           throw new Error('Category not found');
@@ -100,7 +100,7 @@ export function useCategory(slug: string): UseCategoryReturn {
       }
 
       const data = await response.json();
-      
+
       if (data.success) {
         setCategory(data.data);
       } else {

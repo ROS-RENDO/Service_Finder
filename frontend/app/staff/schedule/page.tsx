@@ -3,7 +3,7 @@ import { useState, useEffect } from 'react';
 import { ChevronLeft, ChevronRight, MapPin, Clock, User, Loader2 } from 'lucide-react';
 import Link from 'next/link';
 import { cn } from '@/lib/utils';
-import { useStaffBookings } from '@/lib/hooks/useStaff';
+import { useStaffBookings, formatStaffTime } from '@/lib/hooks/useStaff';
 
 const weekDays = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
 const months = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December'];
@@ -19,16 +19,7 @@ export default function StaffSchedule() {
   const [currentDate, setCurrentDate] = useState(new Date());
   const [selectedDate, setSelectedDate] = useState(new Date());
   
-  // Get staff ID from localStorage or auth context - initialize directly
-  const getStaffId = () => {
-    if (typeof window === 'undefined') return '';
-    const user = JSON.parse(localStorage.getItem('user') || '{}');
-    return user.staffId || '';
-  };
-  
-  const [staffId] = useState<string>(getStaffId);
-
-  // Fetch bookings for this staff member (via staff backend)
+  // Fetch bookings assigned to this staff (GET /api/staff/bookings)
   const { bookings, loading, error, fetchBookings } = useStaffBookings({
     autoFetch: true,
   });
@@ -218,10 +209,10 @@ export default function StaffSchedule() {
                     <div className="flex items-start justify-between mb-2">
                       <div className="flex items-center gap-2">
                         <Clock className="w-4 h-4 text-primary" />
-                        <span className="font-medium text-foreground">{job.startTime}</span>
+                        <span className="font-medium text-foreground">{formatStaffTime(job.startTime)}</span>
                         <span className="text-muted-foreground">·</span>
                         <span className="text-sm text-muted-foreground">
-                          {job.startTime} - {job.endTime}
+                          {formatStaffTime(job.startTime)} - {formatStaffTime(job.endTime)}
                         </span>
                       </div>
                       <span className={cn(

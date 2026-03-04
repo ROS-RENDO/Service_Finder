@@ -24,14 +24,16 @@ export default function Staff() {
     setLoading(true);
     setError(null);
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff`, {
-        credentials: 'include',
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
-      
+
       if (!response.ok) {
         throw new Error('Failed to fetch staff');
       }
-      
+
       const data = await response.json();
       setStaff(data.staff || []);
     } catch (err) {
@@ -53,9 +55,11 @@ export default function Staff() {
     }
 
     try {
+      const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff/${staffId}`, {
-        method: 'DELETE',
-        credentials: 'include',
+        method: "DELETE",
+        headers: token ? { Authorization: `Bearer ${token}` } : {},
+        credentials: "include",
       });
 
       if (!response.ok) {
@@ -65,9 +69,9 @@ export default function Staff() {
 
       toast.success(`${staffName} has been removed`);
       fetchStaff(); // Refresh list
-    } catch (err: any) {
-      console.error('Error removing staff:', err);
-      toast.error(err.message || "Failed to remove staff member");
+    } catch (err: unknown) {
+      console.error("Error removing staff:", err);
+      toast.error(err instanceof Error ? err.message : "Failed to remove staff member");
     }
   };
 
@@ -167,10 +171,10 @@ export default function Staff() {
                   </div>
 
                   <div className="flex items-center gap-1 text-sm">
-                      <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                      <span className="font-medium">{member.averageRating}</span>
-                      <span className="text-muted-foreground">({member.completedJobs} jobs)</span>
-                    </div>
+                    <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
+                    <span className="font-medium">{member.averageRating}</span>
+                    <span className="text-muted-foreground">({member.completedJobs} jobs)</span>
+                  </div>
                 </div>
 
                 <DropdownMenu>
@@ -181,22 +185,17 @@ export default function Staff() {
                   </DropdownMenuTrigger>
                   <DropdownMenuContent align="end">
                     <DropdownMenuItem asChild>
+                      <Link href={`/company/messages?new=${member.userId}`}>
+                        Message
+                      </Link>
+                    </DropdownMenuItem>
+                    <DropdownMenuItem asChild>
                       <Link href={`/company/staff/${member.id}`}>
                         View Profile
                       </Link>
                     </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/company/staff/${member.id}/edit`}>
-                        Edit
-                      </Link>
-                    </DropdownMenuItem>
-                    <DropdownMenuItem asChild>
-                      <Link href={`/company/staff/${member.id}/schedule`}>
-                        View Schedule
-                      </Link>
-                    </DropdownMenuItem>
                     {member.status === 'active' ? (
-                      <DropdownMenuItem 
+                      <DropdownMenuItem
                         className="text-destructive"
                         onClick={() => handleRemoveStaff(member.id, member.fullName)}
                       >
@@ -206,9 +205,11 @@ export default function Staff() {
                       <DropdownMenuItem
                         onClick={async () => {
                           try {
+                            const token = typeof window !== "undefined" ? localStorage.getItem("token") : null;
                             const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/staff/${member.id}/reactivate`, {
-                              method: 'POST',
-                              credentials: 'include',
+                              method: "POST",
+                              headers: token ? { Authorization: `Bearer ${token}` } : {},
+                              credentials: "include",
                             });
                             if (response.ok) {
                               toast.success("Staff member reactivated");

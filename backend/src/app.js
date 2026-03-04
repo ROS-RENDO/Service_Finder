@@ -14,9 +14,11 @@ const serviceRoutes = require("./routes/services.routes");
 const bookingRoutes = require("./routes/bookings.routes");
 const paymentRoutes = require("./routes/payments.routes");
 const reviewRoutes = require("./routes/reviews.routes");
+const conversationRoutes = require("./routes/conversations.routes");
 const categoryRoutes = require("./routes/category.routes");
 const serviceTypeRoutes = require("./routes/serviceType.routes");
-const staffRoutes= require("./routes/staff.routes")
+const staffRoutes = require("./routes/staff.routes")
+const aiRoutes = require("./routes/ai.routes");
 
 const app = express();
 
@@ -46,6 +48,10 @@ app.post(
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
+// Serve uploaded files as static assets
+const path = require('path');
+app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+
 // Health check endpoint
 app.get("/health", (req, res) => {
   res.status(200).json({ status: "OK", timestamp: new Date().toISOString() });
@@ -59,7 +65,9 @@ app.use("/api/services", serviceRoutes);
 app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
+app.use("/api/conversations", conversationRoutes);
 app.use('/api/staff', staffRoutes);
+app.use('/api/analyze-wall', aiRoutes);
 
 app.use("/api/categories", categoryRoutes);
 app.use("/api/service-types", serviceTypeRoutes);

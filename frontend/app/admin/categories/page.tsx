@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { Plus, Edit, Trash2, MoreHorizontal, FolderTree } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -16,61 +16,47 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
+  DialogTrigger,
 } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
-import { toast } from "sonner";
+import { toast } from "@/lib/hooks/use-toast";
 
-const categories = [
-  {
-    id: "1",
-    name: "Deep Cleaning",
-    description: "Thorough cleaning of all surfaces, appliances, and hard-to-reach areas.",
-    serviceCount: 24,
-    color: "bg-primary/10 text-primary",
-  },
-  {
-    id: "2",
-    name: "Regular Cleaning",
-    description: "Standard cleaning for maintaining a clean home environment.",
-    serviceCount: 45,
-    color: "bg-success/10 text-success",
-  },
-  {
-    id: "3",
-    name: "Move-out Cleaning",
-    description: "Complete cleaning service for tenants moving out of properties.",
-    serviceCount: 18,
-    color: "bg-info/10 text-info",
-  },
-  {
-    id: "4",
-    name: "Office Cleaning",
-    description: "Professional cleaning services for commercial office spaces.",
-    serviceCount: 32,
-    color: "bg-warning/10 text-warning",
-  },
-  {
-    id: "5",
-    name: "Carpet Cleaning",
-    description: "Deep cleaning and stain removal for carpets and rugs.",
-    serviceCount: 15,
-    color: "bg-destructive/10 text-destructive",
-  },
-  {
-    id: "6",
-    name: "Window Cleaning",
-    description: "Interior and exterior window cleaning services.",
-    serviceCount: 21,
-    color: "bg-accent text-accent-foreground",
-  },
-];
+interface Category {
+  id: string;
+  name: string;
+  slug: string;
+  description: string;
+  icon?: string;
+  status: string;
+  serviceTypesCount: number;
+}
 
 export default function CategoriesPage() {
+  const [categories, setCategories] = useState<Category[]>([]);
+  const [loading, setLoading] = useState(true);
   const [dialogOpen, setDialogOpen] = useState(false);
-  const [editingCategory, setEditingCategory] = useState<typeof categories[0] | null>(null);
+  const [editingCategory, setEditingCategory] = useState<Category | null>(null);
   const [formData, setFormData] = useState({ name: "", description: "" });
+
+  useEffect(() => {
+    fetchCategories();
+  }, []);
+
+  const fetchCategories = async () => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories`);
+      const data = await res.json();
+      if (res.ok) {
+        setCategories(data.data || []);
+      }
+    } catch (error) {
+      console.error("Failed to fetch categories", error);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleAdd = () => {
     setEditingCategory(null);
@@ -78,73 +64,131 @@ export default function CategoriesPage() {
     setDialogOpen(true);
   };
 
-  const handleEdit = (category: typeof categories[0]) => {
+  const handleEdit = (category: Category) => {
     setEditingCategory(category);
     setFormData({ name: category.name, description: category.description });
     setDialogOpen(true);
   };
 
-  const handleSave = () => {
-    if (editingCategory) {
-      toast.success(`Category "${formData.name}" updated successfully!`);
-    } else {
-      toast.success(`Category "${formData.name}" created successfully!`);
+  const handleSave = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      const url = editingCategory
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/categories/${editingCategory.id}`
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/categories`;
+
+      const method = editingCategory ? "PUT" : "POST";
+
+      const res = await fetch(url, {
+        method,
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`,
+        },
+        body: JSON.stringify(formData),
+      });
+
+      if (!res.ok) throw new Error("Failed to save category");
+
+      toast({
+        title: "Success",
+        description: `Category ${editingCategory ? "updated" : "created"} successfully`,
+      });
+
+      setDialogOpen(false);
+      fetchCategories();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Something went wrong",
+      });
     }
-    setDialogOpen(false);
   };
 
-  const handleDelete = (category: typeof categories[0]) => {
-    toast.success(`Category "${category.name}" deleted.`);
+  const handleDelete = async (category: Category) => {
+    if (!confirm(`Are you sure you want to delete ${category.name}?`)) return;
+
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/categories/${category.id}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` },
+      });
+
+      if (!res.ok) throw new Error("Failed to delete category");
+
+      toast({
+        title: "Success",
+        description: "Category deleted successfully",
+      });
+      fetchCategories();
+    } catch (error) {
+      toast({
+        variant: "destructive",
+        title: "Error",
+        description: "Failed to delete category",
+      });
+    }
   };
 
   return (
     <div className="space-y-6">
+      <div className="flex justify-end">
+        <Button onClick={handleAdd}>
+          <Plus className="mr-2 h-4 w-4" /> Add Category
+        </Button>
+      </div>
 
       {/* Categories Grid */}
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {categories.map((category, index) => (
-          <Card
-            key={category.id}
-            className="shadow-soft hover:shadow-elevated transition-shadow animate-fade-in"
-            style={{ animationDelay: `${index * 50}ms` }}
-          >
-            <CardContent className="p-6">
-              <div className="flex items-start justify-between">
-                <div className={`rounded-lg p-3 ${category.color}`}>
-                  <FolderTree className="h-5 w-5" />
+        {loading ? (
+          <p>Loading...</p>
+        ) : (
+          categories.map((category, index) => (
+            <Card
+              key={category.id}
+              className="shadow-soft hover:shadow-elevated transition-shadow animate-fade-in"
+              style={{ animationDelay: `${index * 50}ms` }}
+            >
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className={`rounded-lg p-3 bg-primary/10 text-primary`}>
+                    <FolderTree className="h-5 w-5" />
+                  </div>
+                  <DropdownMenu>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="ghost" size="icon" className="h-8 w-8">
+                        <MoreHorizontal className="h-4 w-4" />
+                      </Button>
+                    </DropdownMenuTrigger>
+                    <DropdownMenuContent align="end">
+                      <DropdownMenuItem onClick={() => handleEdit(category)}>
+                        <Edit className="mr-2 h-4 w-4" />
+                        Edit
+                      </DropdownMenuItem>
+                      <DropdownMenuItem
+                        className="text-destructive"
+                        onClick={() => handleDelete(category)}
+                      >
+                        <Trash2 className="mr-2 h-4 w-4" />
+                        Delete
+                      </DropdownMenuItem>
+                    </DropdownMenuContent>
+                  </DropdownMenu>
                 </div>
-                <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="ghost" size="icon" className="h-8 w-8">
-                      <MoreHorizontal className="h-4 w-4" />
-                    </Button>
-                  </DropdownMenuTrigger>
-                  <DropdownMenuContent align="end">
-                    <DropdownMenuItem onClick={() => handleEdit(category)}>
-                      <Edit className="mr-2 h-4 w-4" />
-                      Edit
-                    </DropdownMenuItem>
-                    <DropdownMenuItem
-                      className="text-destructive"
-                      onClick={() => handleDelete(category)}
-                    >
-                      <Trash2 className="mr-2 h-4 w-4" />
-                      Delete
-                    </DropdownMenuItem>
-                  </DropdownMenuContent>
-                </DropdownMenu>
-              </div>
-              <h3 className="mt-4 text-lg font-semibold">{category.name}</h3>
-              <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
-                {category.description}
-              </p>
-              <p className="mt-4 text-sm">
-                <span className="font-medium">{category.serviceCount}</span>
-                <span className="text-muted-foreground"> services</span>
-              </p>
-            </CardContent>
-          </Card>
-        ))}
+                <h3 className="mt-4 text-lg font-semibold">{category.name}</h3>
+                <p className="mt-1 text-sm text-muted-foreground line-clamp-2">
+                  {category.description || "No description"}
+                </p>
+                <p className="mt-4 text-sm">
+                  <span className="font-medium">{category.serviceTypesCount || 0}</span>
+                  <span className="text-muted-foreground"> service types</span>
+                </p>
+              </CardContent>
+            </Card>
+          ))
+        )}
       </div>
 
       {/* Add/Edit Dialog */}

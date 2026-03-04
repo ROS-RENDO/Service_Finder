@@ -39,7 +39,7 @@ export function Navbar() {
               <Sparkles className="w-5 h-5 text-primary-foreground" />
             </div>
             <span className="font-display font-bold text-xl text-foreground">
-              Sparkle<span className="text-primary">Find</span>
+              Cleaning<span className="text-primary">Service</span>
             </span>
           </Link>
 

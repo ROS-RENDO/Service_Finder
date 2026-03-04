@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Users, Building2, Tag, BarChart3, Settings, ShieldCheck } from 'lucide-react'
+import { Home, Users, Building2, Tag, BarChart3, Settings, ShieldCheck, Layers } from 'lucide-react'
 
 export default function AdminSidebar() {
   const pathname = usePathname()
@@ -12,6 +12,7 @@ export default function AdminSidebar() {
     { href: '/admin/users', icon: Users, label: 'Users' },
     { href: '/admin/companies', icon: Building2, label: 'Companies' },
     { href: '/admin/categories', icon: Tag, label: 'Categories' },
+    { href: '/admin/service-types', icon: Layers, label: 'Service Types' },
     { href: '/admin/analytics', icon: BarChart3, label: 'Analytics' },
     { href: '/admin/verification', icon: ShieldCheck, label: 'Verification' },
     { href: '/admin/settings', icon: Settings, label: 'Settings' },
@@ -26,11 +27,10 @@ export default function AdminSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                   ? 'bg-purple-50 text-purple-600 font-medium'
                   : 'text-gray-700 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>

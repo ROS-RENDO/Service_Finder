@@ -2,7 +2,7 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
-import { Home, Calendar, ClipboardList, Clock, User } from 'lucide-react'
+import { Home, Calendar, ClipboardList, Clock, User, ClipboardCheck } from 'lucide-react'
 
 export default function StaffSidebar() {
   const pathname = usePathname()
@@ -11,6 +11,7 @@ export default function StaffSidebar() {
     { href: '/staff/dashboard', icon: Home, label: 'Dashboard' },
     { href: '/staff/schedule', icon: Calendar, label: 'My Schedule' },
     { href: '/staff/bookings', icon: ClipboardList, label: 'Active Jobs' },
+    { href: '/staff/services', icon: ClipboardCheck, label: 'Service Requests' },
     { href: '/staff/availability', icon: Clock, label: 'Availability' },
     { href: '/staff/profile', icon: User, label: 'Profile' },
   ]
@@ -24,11 +25,10 @@ export default function StaffSidebar() {
             <Link
               key={item.href}
               href={item.href}
-              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${
-                isActive
+              className={`flex items-center gap-3 px-4 py-3 rounded-lg transition-colors ${isActive
                   ? 'bg-green-50 text-green-600 font-medium'
                   : 'text-gray-700 hover:bg-gray-50'
-              }`}
+                }`}
             >
               <item.icon size={20} />
               <span>{item.label}</span>

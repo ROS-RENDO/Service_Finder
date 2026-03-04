@@ -420,7 +420,7 @@ async function main() {
     console.log("👔 Creating company staff...");
 
     // ===== COMPANY STAFF =====
-    await prisma.companyStaff.create({
+    const companyStaff1 = await prisma.companyStaff.create({
       data: {
         companyId: company1.id,
         userId: staff1.id,
@@ -429,7 +429,7 @@ async function main() {
       },
     });
 
-    await prisma.companyStaff.create({
+    const companyStaff2 = await prisma.companyStaff.create({
       data: {
         companyId: company1.id,
         userId: staff2.id,
@@ -438,7 +438,7 @@ async function main() {
       },
     });
 
-    await prisma.companyStaff.create({
+    const companyStaff3 = await prisma.companyStaff.create({
       data: {
         companyId: company2.id,
         userId: staff3.id,
@@ -608,6 +608,7 @@ async function main() {
         customerId: customer1.id,
         serviceId: service1.id,
         companyId: company1.id,
+        assignedStaffId: companyStaff1.id,
         bookingDate: new Date("2026-02-15"),
         startTime: new Date("2026-02-15T10:00:00"),
         endTime: new Date("2026-02-15T12:00:00"),
@@ -644,6 +645,7 @@ async function main() {
         customerId: customer3.id,
         serviceId: service4.id,
         companyId: company1.id,
+        assignedStaffId: companyStaff2.id,
         bookingDate: new Date("2026-02-10"),
         startTime: new Date("2026-02-10T09:00:00"),
         endTime: new Date("2026-02-10T11:00:00"),
@@ -680,6 +682,7 @@ async function main() {
         customerId: customer1.id,
         serviceId: service5.id,
         companyId: company2.id,
+        assignedStaffId: companyStaff3.id,
         bookingDate: new Date("2026-01-25"),
         startTime: new Date("2026-01-25T11:00:00"),
         endTime: new Date("2026-01-25T12:00:00"),
@@ -763,9 +766,12 @@ async function main() {
       data: {
         bookingId: booking3.id,
         customerId: customer3.id,
-        rating: 5,
-        comment:
+        companyRating: 5,
+        companyComment:
           "Excellent service! The team was professional and thorough. Highly recommended!",
+        staffId: companyStaff2.id,
+        staffRating: 5,
+        staffComment: "David was amazing! Very detail-oriented and friendly.",
       },
     });
 
@@ -773,9 +779,12 @@ async function main() {
       data: {
         bookingId: booking5.id,
         customerId: customer1.id,
-        rating: 4,
-        comment:
+        companyRating: 4,
+        companyComment:
           "Great work on fixing the pipe. Very professional plumbers. Would use again.",
+        staffId: companyStaff3.id,
+        staffRating: 5,
+        staffComment: "Tom was excellent! Fixed the issue quickly and explained everything.",
       },
     });
 
@@ -783,9 +792,12 @@ async function main() {
       data: {
         bookingId: booking1.id,
         customerId: customer1.id,
-        rating: 5,
-        comment:
+        companyRating: 5,
+        companyComment:
           "Amazing cleaning service! My house looks brand new. Will definitely book again.",
+        staffId: companyStaff1.id,
+        staffRating: 5,
+        staffComment: "Robert was fantastic! Very professional and thorough.",
       },
     });
 

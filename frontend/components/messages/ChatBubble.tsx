@@ -1,14 +1,15 @@
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Message, currentUserId } from "@/data/mockData";
+import type { ChatMessage } from "@/lib/hooks/useChat";
 import { Check, CheckCheck } from "lucide-react";
 
 interface ChatBubbleProps {
-  message: Message;
+  message: ChatMessage;
+  currentUserId: string | null;
 }
 
-const ChatBubble = ({ message }: ChatBubbleProps) => {
-  const isCurrentUser = message.senderId === currentUserId;
+const ChatBubble = ({ message, currentUserId }: ChatBubbleProps) => {
+  const isCurrentUser = currentUserId != null && message.senderId === currentUserId;
 
   return (
     <div
@@ -32,13 +33,10 @@ const ChatBubble = ({ message }: ChatBubbleProps) => {
             isCurrentUser ? "justify-end opacity-80" : "text-muted-foreground"
           )}
         >
-          <span>{format(message.timestamp, "h:mm a")}</span>
+          <span>{format(new Date(message.timestamp), "h:mm a")}</span>
           {isCurrentUser && (
-            message.isRead ? (
+            // Placeholder for read receipts when implemented
               <CheckCheck className="h-3 w-3" />
-            ) : (
-              <Check className="h-3 w-3" />
-            )
           )}
         </div>
       </div>

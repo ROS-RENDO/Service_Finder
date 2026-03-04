@@ -11,7 +11,6 @@ const getCookieOptions = () => ({
   sameSite: "lax", // ✅ CSRF protection
   maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
   path: "/", // Available on all routes
-  secure: false,
 });
 
 const register = async (req, res, next) => {
@@ -53,10 +52,7 @@ const register = async (req, res, next) => {
     });
 
     // Generate token
-    const token = generateToken({
-      id: user.id,
-      role: user.role,
-    });
+    const token = generateToken(user.id);
     res.cookie("token", token, getCookieOptions());
 
     res.status(201).json({

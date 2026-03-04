@@ -6,13 +6,11 @@ import { Card } from '@/components/ui/card';
 import { PageHeader } from '@/components/common/PageHeader';
 import { RatingStars } from '@/components/common/RatingStars';
 import { EmptyState } from '@/components/common/EmptyState';
-import { reviews } from '@/data/mockData';
 import { useReviews } from '@/lib/hooks/useReviews';
-import { useEffect } from 'react';
 
 
 export default function ReviewsPage() {
-    const { reviews } = useReviews({ autoFetch: true });
+  const { reviews } = useReviews({ autoFetch: true });
 
   return (
     <div className="animate-fade-in">

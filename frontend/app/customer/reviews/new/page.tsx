@@ -10,7 +10,6 @@ import { Textarea } from '@/components/ui/textarea';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { PageHeader } from '@/components/common/PageHeader';
 import { RatingStars } from '@/components/common/RatingStars';
-import { companies } from '@/data/mockData';
 import { useToast } from '@/lib/hooks/use-toast';
 import { useBookings } from '@/lib/hooks/useBookings';
 import { useReviews } from '@/lib/hooks/useReviews';
@@ -46,10 +45,10 @@ export default function NewReviewPage() {
 
   const result = await createReview({
     bookingId: selectedBookingId,
-    rating,
-    comment
+    companyRating: rating,
+    companyComment: comment
   });
-  console.log(result)
+  console.log(result);
 
   if (result.success) {
     toast({
