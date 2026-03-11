@@ -32,6 +32,12 @@ import { useReviews } from "@/lib/hooks/useReviews";
 import { useCompanies } from "@/lib/hooks/useCompanies";
 import { Service } from "@/types/service.types";
 import { Company } from "@/types/company.types";
+import { useMessages } from "@/lib/hooks/useChat";
+import { useToast } from "@/lib/hooks/use-toast";
+import { Loader2 } from "lucide-react";
+import dynamic from "next/dynamic";
+
+const InteractiveMap = dynamic(() => import("@/components/maps/InteractiveMap"), { ssr: false });
 
 const companyData = {
   gallery: [
@@ -55,10 +61,11 @@ export default function CompanyDetailPage() {
   const serviceType = params.serviceType as string;
   const companyId = params.id as string;
 
-  const [contactType, setContactType] = useState<"call" | "message" | null>(
-    null,
-  );
+  const [contactType, setContactType] = useState<"call" | null>(null);
+  const [startingChat, setStartingChat] = useState(false);
   const [selectedService, setSelectedService] = useState<string | null>(null);
+  const { sendMessage } = useMessages();
+  const { toast } = useToast();
 
   const [company, setCompany] = useState<Company | null>(null);
   const [companyLoading, setCompanyLoading] = useState(true);
@@ -123,6 +130,44 @@ export default function CompanyDetailPage() {
     router.push(`/customer/services/${category}/${serviceType}`);
   };
 
+  const handleStartChat = async () => {
+    if (!company?.ownerId) {
+      toast({
+        title: "Error",
+        description: "Company contact information not available.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setStartingChat(true);
+    toast({
+      title: "Opening Chat",
+      description: `Connecting you with ${company.name}...`,
+    });
+
+    try {
+      const result = await sendMessage({
+        content: `Hi ${company.name}, I have a question about your services.`,
+        recipientId: company.ownerId.toString(),
+      });
+
+      if (result.success && result.conversationId) {
+        router.push(`/customer/messages?conversation=${result.conversationId}`);
+      } else {
+        throw new Error(result.error || "Failed to start conversation");
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to connect to chat.",
+        variant: "destructive",
+      });
+    } finally {
+      setStartingChat(false);
+    }
+  };
+
   return (
     <div className="min-h-screen bg-background">
       <Navbar />
@@ -133,8 +178,9 @@ export default function CompanyDetailPage() {
           <Image
             width={1200}
             height={400}
-            src={company?.coverImageUrl || ""}
+            src={company?.coverImageUrl || "https://images.unsplash.com/photo-1558317374-067fb5f30001?q=80&w=600"}
             alt={company?.name || ""}
+            loading="eager"
             className="w-full h-full object-cover"
           />
           <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
@@ -167,7 +213,7 @@ export default function CompanyDetailPage() {
                   <Image
                     width={128}
                     height={128}
-                    src={company?.logoUrl || ""}
+                    src={company?.logoUrl || "https://images.unsplash.com/photo-1600607687920-4e2a09cf159d?q=80&w=600"}
                     alt={company?.name || ""}
                     className="w-24 h-24 md:w-32 md:h-32 rounded-2xl object-cover border-4 border-background shadow-lg"
                   />
@@ -226,9 +272,14 @@ export default function CompanyDetailPage() {
                     <Button
                       variant="outline"
                       className="gap-2"
-                      onClick={() => setContactType("message")}
+                      onClick={handleStartChat}
+                      disabled={startingChat}
                     >
-                      <Mail className="w-4 h-4" />
+                      {startingChat ? (
+                        <Loader2 className="w-4 h-4 animate-spin" />
+                      ) : (
+                        <Mail className="w-4 h-4" />
+                      )}
                       Send Message
                     </Button>
                   </div>
@@ -289,17 +340,12 @@ export default function CompanyDetailPage() {
                   transition={{ delay: 0.1 + index * 0.05 }}
                 >
                   <Card
-                    className={`group cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-elevated ${
-                      selectedService === service.id
-                        ? "ring-2 ring-primary"
-                        : ""
-                    }`}
+                    className={`group cursor-pointer overflow-hidden transition-all duration-300 hover:shadow-elevated ${selectedService === service.id
+                      ? "ring-2 ring-primary"
+                      : ""
+                      }`}
                     onClick={() =>
-                      setSelectedService(
-                        selectedService === service.id
-                          ? null
-                          : String(service.id),
-                      )
+                      router.push(`/customer/services/${category}/${serviceType}/company/${companyId}/service/${service.id}`)
                     }
                   >
                     {/* Service Image */}
@@ -419,6 +465,39 @@ export default function CompanyDetailPage() {
             </div>
           </motion.section>
 
+          {/* Location Map Section */}
+          {company?.coordinates?.latitude && company?.coordinates?.longitude && (
+            <motion.section
+              initial={{ opacity: 0, y: 20 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ delay: 0.25 }}
+              className="mb-12"
+            >
+              <div className="flex items-center gap-2 mb-4">
+                <MapPin className="w-5 h-5 text-primary" />
+                <h2 className="font-display text-2xl font-bold text-foreground">
+                  Our Location
+                </h2>
+              </div>
+              <p className="text-muted-foreground text-sm mb-4">
+                📍 {company?.address || company?.city}
+              </p>
+              <InteractiveMap
+                className="h-72"
+                zoom={15}
+                markers={[
+                  {
+                    lat: company.coordinates.latitude,
+                    lng: company.coordinates.longitude,
+                    type: "company",
+                    label: company.name,
+                    popupHtml: `<div style="font-family:Inter,sans-serif"><b>${company.name}</b><br/><span style="color:#6b7280;font-size:12px">${company.address || company.city}</span></div>`,
+                  },
+                ]}
+              />
+            </motion.section>
+          )}
+
           {/* Reviews Section */}
           <motion.section
             initial={{ opacity: 0, y: 20 }}
@@ -525,9 +604,14 @@ export default function CompanyDetailPage() {
                   variant="outline"
                   size="lg"
                   className="border-white text-white hover:bg-white/20 gap-2"
-                  onClick={() => setContactType("message")}
+                  onClick={handleStartChat}
+                  disabled={startingChat}
                 >
-                  <Mail className="w-5 h-5" />
+                  {startingChat ? (
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                  ) : (
+                    <Mail className="w-5 h-5" />
+                  )}
                   Contact Us
                 </Button>
               </div>
@@ -542,7 +626,7 @@ export default function CompanyDetailPage() {
       <ContactDialog
         open={contactType !== null}
         onOpenChange={(open) => !open && setContactType(null)}
-        type={contactType || "message"}
+        type={contactType || "call"}
         company={{
           name: company?.name || "",
           logo: company?.logoUrl,

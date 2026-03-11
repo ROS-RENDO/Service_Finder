@@ -139,6 +139,7 @@ export function useCreateCategory() {
     slug: string;
     description?: string;
     icon?: string;
+    imageUrl?: string;
     displayOrder?: number;
   }, token: string) => {
     try {
@@ -192,6 +193,7 @@ export function useUpdateCategory() {
       slug: string;
       description: string;
       icon: string;
+      imageUrl: string;
       displayOrder: number;
       status: string;
     }>,

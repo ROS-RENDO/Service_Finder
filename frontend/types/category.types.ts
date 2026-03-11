@@ -4,6 +4,7 @@ export type Category = {
   slug: string;
   description: string;
   icon: string;
+  imageUrl?: string | null;
   status: "active" | "inactive";
   displayOrder: number;
   serviceTypesCount?: number; // optional if not always present

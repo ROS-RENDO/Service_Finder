@@ -1,4 +1,5 @@
 "use client"
+import { Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "framer-motion";
@@ -12,7 +13,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
-export default function PaymentCancelled() {
+function PaymentCancelledInner() {
   const searchParams = useSearchParams();
   const router = useRouter();
   const bookingId = searchParams.get("booking_id");
@@ -180,5 +181,13 @@ export default function PaymentCancelled() {
         </motion.p>
       </main>
     </div>
+  );
+}
+
+export default function PaymentCancelled() {
+  return (
+    <Suspense fallback={null}>
+      <PaymentCancelledInner />
+    </Suspense>
   );
 }

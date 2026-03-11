@@ -24,6 +24,28 @@ interface UseCompaniesByServiceTypeOptions {
   limit?: number
 }
 
+interface UseCompaniesByCategoryOptions {
+  categorySlug: string
+  autoFetch?: boolean
+  search?: string
+  city?: string
+  minRating?: number
+  sortBy?: 'rating' | 'reviews' | 'price_low' | 'price_high'
+  page?: number
+  limit?: number
+}
+
+interface CompaniesByCategoryResponse {
+  category: Category
+  companies: Company[]
+  pagination: {
+    total: number
+    page: number
+    limit: number
+    pages: number
+  }
+}
+
 interface CompaniesByServiceTypeResponse {
   category: Category
   serviceType: ServiceType
@@ -84,8 +106,6 @@ export function useCompanies(options: UseCompaniesOptions = {}) {
     setError(null)
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/${id}`)
-
-      console.log('Company API Response:', response.status) // Debug log
 
       if (response.ok) {
         const data = await response.json()
@@ -324,18 +344,21 @@ export function useCompaniesByServiceType(options: UseCompaniesByServiceTypeOpti
               ...company,
               // Map API fields to component fields
               verified: company.verificationStatus === 'verified',
-              location: company.city || company.address,
+              location: company.city || company.address || company.location,
               reviews: company.reviewCount || 0,
-              logo: company.logo,
-              // Add coordinates if latitude/longitude exist
-              coordinates: company.latitude && company.longitude ? {
-                lat: company.latitude,
-                lng: company.longitude
-              } : undefined,
+              logoUrl: company.logoUrl,
+              // Normalize coordinates from backend (which sends coordinates: { latitude, longitude })
+              coordinates:
+                company.coordinates && company.coordinates.latitude != null && company.coordinates.longitude != null
+                  ? {
+                    lat: company.coordinates.latitude,
+                    lng: company.coordinates.longitude,
+                  }
+                  : undefined,
               // Ensure all optional fields exist
               highlights: company.highlights || [],
-              responseTime: company.responseTime || 'Usually responds within 24 hours'
-            }))
+              responseTime: company.responseTime || 'Usually responds within 24 hours',
+            })),
           }
           setData(mappedData)
         } else {
@@ -356,6 +379,95 @@ export function useCompaniesByServiceType(options: UseCompaniesByServiceTypeOpti
   return {
     category: data?.category || null,
     serviceType: data?.serviceType || null,
+    companies: data?.companies || [],
+    pagination: data?.pagination || { total: 0, page: 1, limit: 20, pages: 0 },
+    loading,
+    error,
+    refetch: fetchCompanies
+  }
+}
+
+export function useCompaniesByCategory(options: UseCompaniesByCategoryOptions) {
+  const {
+    categorySlug,
+    autoFetch = true,
+    search,
+    city,
+    minRating,
+    sortBy = 'rating',
+    page = 1,
+    limit = 20
+  } = options
+
+  const [data, setData] = useState<CompaniesByCategoryResponse | null>(null)
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  useEffect(() => {
+    if (autoFetch && categorySlug) {
+      fetchCompanies()
+    }
+  }, [categorySlug, search, city, minRating, sortBy, page, limit])
+
+  const fetchCompanies = async () => {
+    setLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams()
+      if (search) params.append('search', search)
+      if (city) params.append('city', city)
+      if (minRating) params.append('minRating', minRating.toString())
+      if (sortBy) params.append('sortBy', sortBy)
+      params.append('page', page.toString())
+      params.append('limit', limit.toString())
+
+      const url = `${process.env.NEXT_PUBLIC_API_URL}/api/companies/categories/${categorySlug}?${params}`
+      const response = await fetch(url)
+
+      if (response.ok) {
+        const result = await response.json()
+        if (result.success) {
+          // Map API response to component-expected format
+          const mappedData = {
+            ...result.data,
+            companies: result.data.companies.map((company: any) => ({
+              ...company,
+              // Map API fields to component fields
+              verified: company.verificationStatus === 'verified',
+              location: company.city || company.address || company.location,
+              reviews: company.reviewCount || 0,
+              logoUrl: company.logoUrl,
+              // Normalize coordinates from backend (which sends coordinates: { latitude, longitude })
+              coordinates:
+                company.coordinates && company.coordinates.latitude != null && company.coordinates.longitude != null
+                  ? {
+                    lat: company.coordinates.latitude,
+                    lng: company.coordinates.longitude,
+                  }
+                  : undefined,
+              // Ensure all optional fields exist
+              highlights: company.highlights || [],
+              responseTime: company.responseTime || 'Usually responds within 24 hours',
+            })),
+          }
+          setData(mappedData)
+        } else {
+          setError(result.message || 'Failed to fetch companies')
+        }
+      } else {
+        const result = await response.json()
+        setError(result.message || 'Failed to fetch companies')
+      }
+    } catch (err) {
+      setError('An error occurred while fetching companies')
+      console.error('Fetch error:', err)
+    } finally {
+      setLoading(false)
+    }
+  }
+
+  return {
+    category: data?.category || null,
     companies: data?.companies || [],
     pagination: data?.pagination || { total: 0, page: 1, limit: 20, pages: 0 },
     loading,

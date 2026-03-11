@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -12,6 +12,7 @@ import Image from "next/image";
 import { FlickerDots } from "@/components/common/FlickerDots";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
 import { useAuthContext } from "@/lib/contexts/AuthContext";
+import { GoogleLogin } from "@react-oauth/google";
 
 
 const roles = [
@@ -36,16 +37,16 @@ const roles = [
 ];
 
 
-export default function Register() {
+function RegisterInner() {
   const [selectedRole, setSelectedRole] = useState("customer");
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
   const { toast } = useToast();
-  const { register } = useAuthContext();
+  const { register, googleLogin } = useAuthContext();
   const [error, setError] = useState('');
-  const searchParams= useSearchParams();
-  
+  const searchParams = useSearchParams();
+
   const [formData, setFormData] = useState({
     fullName: '',
     email: '',
@@ -56,80 +57,137 @@ export default function Register() {
   const redirectTo = searchParams.get('redirect')
 
   const handleSubmit = async (e: React.FormEvent) => {
-  e.preventDefault()
-  setIsLoading(true)
-  setError("")
+    e.preventDefault()
+    setIsLoading(true)
+    setError("")
 
-  if (!selectedRole) {
-    setError("Please select a role")
-    setIsLoading(false)
-    return
-  }
-
-  try {
-    const result = await register({
-      fullName: formData.fullName,
-      email: formData.email,
-      phone: formData.phone,
-      password: formData.password,
-      role: selectedRole,
-    })
-
-    if (!result.success) {
-      setError(result.error || "Registration failed")
-      toast({
-        variant: "destructive",
-        title: "Registration failed",
-        description: result.error || "Please try again",
-      })
+    if (!selectedRole) {
+      setError("Please select a role")
       setIsLoading(false)
       return
     }
 
-    toast({
-      title: "Account created!",
-      description: "Welcome to SparkleFind. Let's get started!",
-    })
+    try {
+      const result = await register({
+        fullName: formData.fullName,
+        email: formData.email,
+        phone: formData.phone,
+        password: formData.password,
+        role: selectedRole,
+      })
 
-    // Small delay to ensure cookie is set
-    await new Promise((resolve) => setTimeout(resolve, 100))
-
-    // Redirect based on role or optional redirect
-    if (redirectTo) {
-      router.push(redirectTo)
-    } else {
-      switch (result.user.role) {
-        case "customer":
-          router.push("/customer/dashboard")
-          break
-        case "company_admin":
-          router.push("/company/dashboard")
-          break
-        case "staff":
-          router.push("/staff/dashboard")
-          break
-        case "admin":
-          router.push("/admin/dashboard")
-          break
-        default:
-          router.push("/")
+      if (!result.success) {
+        setError(result.error || "Registration failed")
+        toast({
+          variant: "destructive",
+          title: "Registration failed",
+          description: result.error || "Please try again",
+        })
+        setIsLoading(false)
+        return
       }
+
+      toast({
+        title: "Account created!",
+        description: "Welcome to SparkleFind. Let's get started!",
+      })
+
+      // Small delay to ensure cookie is set
+      await new Promise((resolve) => setTimeout(resolve, 100))
+
+      // Redirect based on role or optional redirect
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else {
+        switch (result.user.role) {
+          case "customer":
+            router.push("/customer/dashboard")
+            break
+          case "company_admin":
+            router.push("/company/dashboard")
+            break
+          case "staff":
+            router.push("/staff/dashboard")
+            break
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          default:
+            router.push("/")
+        }
+      }
+
+      // Force reload to trigger middleware
+      router.refresh()
+    } catch (err) {
+      setError("Registration failed")
+      toast({
+        variant: "destructive",
+        title: "Registration failed",
+        description: "Please try again",
+      })
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setIsLoading(true)
+    setError("")
+
+    if (!selectedRole) {
+      setError("Please select a role before continuing with Google")
+      setIsLoading(false)
+      return
     }
 
-    // Force reload to trigger middleware
-    router.refresh()
-  } catch (err) {
-    setError("Registration failed")
-    toast({
-      variant: "destructive",
-      title: "Registration failed",
-      description: "Please try again",
-    })
-  } finally {
+    if (!credentialResponse.credential) {
+      setError("Google login failed")
+      setIsLoading(false)
+      return
+    }
+
+    const result = await googleLogin(credentialResponse.credential, selectedRole)
+
+    if (result.success) {
+      toast({
+        title: "Success!",
+        description: "You've successfully signed in with Google.",
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else {
+        switch (result.user?.role) {
+          case "customer":
+            router.push("/customer/dashboard")
+            break
+          case "company_admin":
+            router.push("/company/dashboard")
+            break
+          case "staff":
+            router.push("/staff/dashboard")
+            break
+          case "admin":
+            router.push("/admin/dashboard")
+            break
+          default:
+            router.push("/")
+        }
+      }
+      router.refresh()
+    } else {
+      setError(result.error || "Google login failed")
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: result.error || "Please check your account",
+      })
+    }
     setIsLoading(false)
   }
-}
-
 
   return (
     <div className="min-h-screen flex">
@@ -189,15 +247,13 @@ export default function Register() {
                     key={role.id}
                     type="button"
                     onClick={() => setSelectedRole(role.id)}
-                    className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${
-                      selectedRole === role.id
+                    className={`flex items-center gap-4 p-4 rounded-xl border-2 transition-all text-left ${selectedRole === role.id
                         ? "border-primary bg-primary/5"
                         : "border-border hover:border-primary/30"
-                    }`}
+                      }`}
                   >
-                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${
-                      selectedRole === role.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
-                    }`}>
+                    <div className={`w-12 h-12 rounded-xl flex items-center justify-center ${selectedRole === role.id ? "bg-primary text-primary-foreground" : "bg-secondary text-muted-foreground"
+                      }`}>
                       <role.icon className="w-6 h-6" />
                     </div>
                     <div>
@@ -218,7 +274,7 @@ export default function Register() {
                   type="text"
                   placeholder="John Doe"
                   value={formData.fullName}
-                  onChange={(e) => setFormData({...formData, fullName: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, fullName: e.target.value })}
                   className="pl-10 h-12"
                   required
                 />
@@ -234,7 +290,7 @@ export default function Register() {
                   type="email"
                   placeholder="you@example.com"
                   value={formData.email}
-                  onChange={(e) => setFormData({...formData, email: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="pl-10 h-12"
                   required
                 />
@@ -250,7 +306,7 @@ export default function Register() {
                   type={showPassword ? "text" : "password"}
                   placeholder="••••••••"
                   value={formData.password}
-                  onChange={(e) => setFormData({...formData, password: e.target.value})}
+                  onChange={(e) => setFormData({ ...formData, password: e.target.value })}
                   className="pl-10 pr-10 h-12"
                   required
                   minLength={8}
@@ -266,12 +322,38 @@ export default function Register() {
               <p className="text-xs text-muted-foreground">Must be at least 8 characters</p>
             </div>
 
-            {error && <ErrorMessage message={error}/>}
+            {error && <ErrorMessage message={error} />}
 
             <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
-              {isLoading ? <FlickerDots/> : "Create Account"}
+              {isLoading ? <FlickerDots /> : "Create Account"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
+
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-center flex-col items-center gap-2">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setError("Google sign in was unsuccessful")
+                  toast({
+                    variant: "destructive",
+                    title: "Google Login Failed",
+                    description: "Please try again later."
+                  })
+                }}
+                useOneTap
+              />
+            </div>
 
             <p className="text-xs text-center text-muted-foreground">
               By creating an account, you agree to our{" "}
@@ -290,5 +372,13 @@ export default function Register() {
         </motion.div>
       </div>
     </div>
+  );
+}
+
+export default function Register() {
+  return (
+    <Suspense fallback={null}>
+      <RegisterInner />
+    </Suspense>
   );
 }

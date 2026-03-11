@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -10,20 +10,21 @@ import { Label } from "@/components/ui/label";
 import { useToast } from "@/lib/hooks/use-toast";
 import Image from "next/image";
 import { useSearchParams } from "next/navigation";
+import { GoogleLogin } from "@react-oauth/google";
 import { FlickerDots } from "@/components/common/FlickerDots";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
 import { useAuthContext } from "@/lib/contexts/AuthContext";
-export default function Login() {
+function LoginInner() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const router = useRouter();
-  const searchParams= useSearchParams();
+  const searchParams = useSearchParams();
 
 
-    const { login } = useAuthContext()
+  const { login, googleLogin } = useAuthContext()
   const { toast } = useToast();
 
   const redirectTo = searchParams.get('redirect')
@@ -34,7 +35,7 @@ export default function Login() {
     setError("")
 
     const result = await login(email, password)
-    
+
 
     if (result.success) {
       toast({
@@ -52,7 +53,7 @@ export default function Login() {
         // Will be redirected by home pazge based on role
         router.push('/')
       }
-      
+
       // Force page reload to trigger middleware
       router.refresh()
     } else {
@@ -64,6 +65,43 @@ export default function Login() {
       })
     }
 
+    setIsLoading(false)
+  }
+
+  const handleGoogleSuccess = async (credentialResponse: any) => {
+    setIsLoading(true)
+    setError("")
+
+    if (!credentialResponse.credential) {
+      setError("Google login failed")
+      setIsLoading(false)
+      return
+    }
+
+    const result = await googleLogin(credentialResponse.credential)
+
+    if (result.success) {
+      toast({
+        title: "Welcome back!",
+        description: "You've successfully logged in with Google.",
+      })
+
+      await new Promise(resolve => setTimeout(resolve, 100))
+
+      if (redirectTo) {
+        router.push(redirectTo)
+      } else {
+        router.push('/')
+      }
+      router.refresh()
+    } else {
+      setError(result.error || "Google login failed")
+      toast({
+        variant: "destructive",
+        title: "Login failed",
+        description: result.error || "Please check your account",
+      })
+    }
     setIsLoading(false)
   }
 
@@ -156,6 +194,32 @@ export default function Login() {
               {isLoading ? <FlickerDots /> : "Sign In"}
               <ArrowRight className="w-4 h-4 ml-2" />
             </Button>
+            
+            <div className="relative my-6">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">
+                  Or continue with
+                </span>
+              </div>
+            </div>
+
+            <div className="flex justify-center flex-col items-center gap-2">
+              <GoogleLogin
+                onSuccess={handleGoogleSuccess}
+                onError={() => {
+                  setError("Google sign in was unsuccessful")
+                  toast({
+                    variant: "destructive",
+                    title: "Google Login Failed",
+                    description: "Please try again later."
+                  })
+                }}
+                useOneTap
+              />
+            </div>
           </form>
 
           <p className="text-center text-muted-foreground mt-8">
@@ -193,5 +257,13 @@ export default function Login() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function Login() {
+  return (
+    <Suspense fallback={null}>
+      <LoginInner />
+    </Suspense>
   );
 }

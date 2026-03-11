@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -19,7 +19,7 @@ import { getCategoryIcon, getCategoryGradient, getCategoryImage } from "@/lib/vi
 
 // Categories (Level 1)
 
-export default function ServicesPage() {
+function ServicesPageInner() {
   const searchParams = useSearchParams();
 
   const { categories, loading, error } = useCategories();
@@ -88,7 +88,7 @@ export default function ServicesPage() {
                 // Get dynamic visuals for this category
                 const CategoryIcon = getCategoryIcon(category.slug, category.name);
                 const gradient = getCategoryGradient(category.slug);
-                const imageUrl = getCategoryImage(category.slug);
+                const imageUrl = category.imageUrl || getCategoryImage(category.slug);
 
                 return (
                   <motion.div
@@ -164,5 +164,13 @@ export default function ServicesPage() {
 
       <Footer />
     </div>
+  );
+}
+
+export default function ServicesPage() {
+  return (
+    <Suspense fallback={null}>
+      <ServicesPageInner />
+    </Suspense>
   );
 }

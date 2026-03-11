@@ -313,6 +313,66 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     }
   }, [API_URL, autoFetch, fetchPayments]);
 
+  /**
+   * Create PayPal Order
+   */
+  const createPaypalOrder = useCallback(async (bookingId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/paypal/order`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ bookingId }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to create PayPal order');
+
+      return { success: true, url: data.url, orderId: data.orderId };
+    } catch (err: any) {
+      console.error('PayPal create order error:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Capture PayPal Order
+   */
+  const capturePaypalOrder = useCallback(async (orderID: string, bookingId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/paypal/capture`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${token}`,
+        },
+        credentials: 'include',
+        body: JSON.stringify({ orderID, bookingId }),
+      });
+
+      const data = await response.json();
+      if (!response.ok) throw new Error(data.error || 'Failed to capture PayPal payment');
+
+      return { success: true, payment: data.payment };
+    } catch (err: any) {
+      console.error('PayPal capture error:', err);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   return {
     payments,
     loading,
@@ -324,5 +384,7 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     createCheckoutSession,
     completePayment,
     updatePayment,
+    createPaypalOrder,
+    capturePaypalOrder,
   };
 }

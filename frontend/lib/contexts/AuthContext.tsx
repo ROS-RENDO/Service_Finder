@@ -2,6 +2,7 @@
 
 import { createContext, useContext, useEffect, useState, ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
+import { GoogleOAuthProvider } from '@react-oauth/google'
 
 
 type AuthResult =
@@ -23,6 +24,7 @@ interface AuthContextType {
   loading: boolean
   isAuthenticated: boolean
   login: (email: string, password: string) => Promise<AuthResult>
+  googleLogin: (token: string, role?: string) => Promise<AuthResult>
   register: (userData: any) => Promise<AuthResult>
   logout: () => Promise<void>
   checkAuth: () => Promise<void>
@@ -117,6 +119,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const googleLogin = async (token: string, role: string = 'customer'): Promise<AuthResult> => {
+    try {
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/google`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ token, role }),
+        credentials: 'include',
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        if (data.token) {
+          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
+        }
+        
+        setUser(data.user)
+        
+        return { success: true, user: data.user }
+      } else {
+        const error = await response.json()
+        return { success: false, error: error.error || 'Google login failed' }
+      }
+    } catch (error) {
+      return { success: false, error: 'Network error' }
+    }
+  }
+
   const logout = async () => {
     try {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
@@ -133,17 +163,20 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   return (
-    <AuthContext.Provider value={{ 
-      user, 
-      loading, 
-      isAuthenticated: !!user, 
-      login,
-      register,
-      logout,
-      checkAuth 
-    }}>
-      {children}
-    </AuthContext.Provider>
+    <GoogleOAuthProvider clientId={process.env.NEXT_PUBLIC_GOOGLE_CLIENT_ID || ""}>
+      <AuthContext.Provider value={{ 
+        user, 
+        loading, 
+        isAuthenticated: !!user, 
+        login,
+        googleLogin,
+        register,
+        logout,
+        checkAuth 
+      }}>
+        {children}
+      </AuthContext.Provider>
+    </GoogleOAuthProvider>
   )
 }
 

@@ -35,6 +35,10 @@ import ServiceTracker from "@/components/booking/ServiceTracker";
 import Image from "next/image";
 import { Navbar } from "@/components/layout/Navbar";
 import { Booking } from "@/types/booking.types";
+import { useMessages } from "@/lib/hooks/useChat";
+import dynamic from "next/dynamic";
+
+const InteractiveMap = dynamic(() => import("@/components/maps/InteractiveMap"), { ssr: false });
 
 export default function BookingConfirmationPage() {
   const params = useParams();
@@ -46,6 +50,10 @@ export default function BookingConfirmationPage() {
 
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [startingChat, setStartingChat] = useState(false);
+  const [staffLat, setStaffLat] = useState<number | null>(null);
+  const [staffLng, setStaffLng] = useState<number | null>(null);
+  const { sendMessage } = useMessages();
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -87,11 +95,42 @@ export default function BookingConfirmationPage() {
     }
   };
 
-  const handleContactCompany = () => {
+  const handleContactCompany = async () => {
+    if (!booking?.company?.ownerId) {
+      toast({
+        title: "Error",
+        description: "Company contact information not available.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setStartingChat(true);
     toast({
       title: "Opening Chat",
       description: `Connecting you with ${booking?.company?.name}...`,
     });
+
+    try {
+      const result = await sendMessage({
+        content: `Hi ${booking.company.name}, I'm contacting you regarding my booking #${booking.id} (${booking.service.name}).`,
+        recipientId: booking.company.ownerId.toString(),
+      });
+
+      if (result.success && result.conversationId) {
+        router.push(`/customer/messages?conversation=${result.conversationId}`);
+      } else {
+        throw new Error(result.error || "Failed to start conversation");
+      }
+    } catch (err: any) {
+      toast({
+        title: "Error",
+        description: err.message || "Failed to connect to chat.",
+        variant: "destructive",
+      });
+    } finally {
+      setStartingChat(false);
+    }
   };
 
   // Loading state
@@ -394,6 +433,54 @@ export default function BookingConfirmationPage() {
                     </p>
                   </div>
                 </div>
+
+                {/* Interactive Map with customer + company + live staff */}
+                {(() => {
+                  const customerLat = (booking as any).latitude ? Number((booking as any).latitude) : null;
+                  const customerLng = (booking as any).longitude ? Number((booking as any).longitude) : null;
+                  const companyLat = (booking as any).company?.latitude ? Number((booking as any).company.latitude) : null;
+                  const companyLng = (booking as any).company?.longitude ? Number((booking as any).company.longitude) : null;
+                  const hasMapData = (customerLat && customerLng) || (companyLat && companyLng);
+                  if (!hasMapData) return null;
+
+                  const mapMarkers: any[] = [];
+                  if (customerLat && customerLng) {
+                    mapMarkers.push({ lat: customerLat, lng: customerLng, type: "customer", label: "Your Location", popupHtml: `<b>📍 Your Location</b><br/><span style="color:#6b7280;font-size:12px">${booking.serviceAddress}</span>` });
+                  }
+                  if (companyLat && companyLng) {
+                    mapMarkers.push({ lat: companyLat, lng: companyLng, type: "company", label: booking.company.name, popupHtml: `<b>🏢 ${booking.company.name}</b>` });
+                  }
+                  if (staffLat && staffLng) {
+                    mapMarkers.push({ lat: staffLat, lng: staffLng, type: "staff", label: "Staff", popupHtml: `<b>👷 Staff En Route</b>` });
+                  }
+
+                  return (
+                    <div className="mt-3">
+                      <div className="flex items-center gap-2 mb-2">
+                        <MapPin className="w-4 h-4 text-primary" />
+                        <span className="text-sm font-medium text-foreground">Live Map</span>
+                        {(booking.status === "in_progress" || booking.status === "enroute") && (
+                          <span className="flex items-center gap-1 ml-auto text-xs text-green-600 bg-green-100 dark:bg-green-900/30 px-2 py-0.5 rounded-full">
+                            <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
+                            Live Tracking
+                          </span>
+                        )}
+                      </div>
+                      <InteractiveMap
+                        className="h-64"
+                        markers={mapMarkers}
+                        zoom={14}
+                        trackStaff={booking.status === "in_progress" || booking.status === "enroute"}
+                        onStaffMoved={(lat, lng) => { setStaffLat(lat); setStaffLng(lng); }}
+                      />
+                      <div className="flex items-center gap-4 mt-2 text-xs text-muted-foreground">
+                        <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-sky-500 inline-block"></span>You</div>
+                        <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-violet-600 inline-block"></span>Company</div>
+                        {booking.assignedStaff && <div className="flex items-center gap-1"><span className="w-3 h-3 rounded-full bg-amber-500 inline-block"></span>Staff</div>}
+                      </div>
+                    </div>
+                  );
+                })()}
               </div>
             </div>
 
@@ -435,8 +522,13 @@ export default function BookingConfirmationPage() {
                   size="sm"
                   className="gap-2"
                   onClick={handleContactCompany}
+                  disabled={startingChat}
                 >
-                  <MessageSquare className="w-4 h-4" />
+                  {startingChat ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <MessageSquare className="w-4 h-4" />
+                  )}
                   Message
                 </Button>
                 {booking.company.phone && (
@@ -451,7 +543,11 @@ export default function BookingConfirmationPage() {
                   variant="outline"
                   size="sm"
                   className="gap-2"
-                  onClick={() => router.push(`/customer/companies/${booking.company.id}`)}
+                  onClick={() => {
+                    const categorySlug = (booking as any).service?.serviceType?.category?.slug || "general";
+                    const serviceTypeSlug = (booking as any).service?.serviceType?.slug || "service";
+                    router.push(`/customer/services/${categorySlug}/${serviceTypeSlug}/company/${booking.company.id}`);
+                  }}
                 >
                   View Profile
                   <ChevronRight className="w-4 h-4" />

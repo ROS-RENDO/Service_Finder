@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react";
+import { useEffect, useState, Suspense } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
@@ -16,13 +16,15 @@ import {
 import { Button } from "@/components/ui/button";
 import Confetti from "@/components/payment/Confetti";
 import { useBookings } from "@/lib/hooks/useBookings";
+import { usePayments } from "@/lib/hooks/usePayments";
 import { Booking } from "@/types/booking.types";
 
-export default function PaymentSuccess() {
+function PaymentSuccessInner() {
   const searchParams = useSearchParams();
   const bookingId = searchParams.get("booking_id");
 
-  const { getBookingById, loading } = useBookings({ autoFetch: false });
+  const { getBookingById, loading: bookingLoading } = useBookings({ autoFetch: false });
+  const { capturePaypalOrder } = usePayments({ autoFetch: false });
   const [showConfetti, setShowConfetti] = useState(true);
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -40,6 +42,19 @@ export default function PaymentSuccess() {
     }
 
     const fetchBooking = async () => {
+      // 1. If method is paypal and token exists, we must capture it first
+      const method = searchParams.get("method");
+      const token = searchParams.get("token");
+
+      if (method === "paypal" && token) {
+        const captureResult = await capturePaypalOrder(token, bookingId);
+        if (!captureResult.success) {
+          setError(captureResult.error || "Failed to finalize PayPal payment. Please check your account.");
+          return;
+        }
+      }
+
+      // 2. Fetch the updated booking details
       const result = await getBookingById(bookingId);
       if (result.success) {
         setBooking(result.booking);
@@ -49,7 +64,7 @@ export default function PaymentSuccess() {
     };
 
     fetchBooking();
-  }, []);
+  }, [bookingId, searchParams, capturePaypalOrder]);
 
 
 
@@ -196,5 +211,13 @@ export default function PaymentSuccess() {
         </motion.p>
       </main>
     </div>
+  );
+}
+
+export default function PaymentSuccess() {
+  return (
+    <Suspense fallback={null}>
+      <PaymentSuccessInner />
+    </Suspense>
   );
 }

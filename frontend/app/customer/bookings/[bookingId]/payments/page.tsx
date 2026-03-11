@@ -22,14 +22,12 @@ import { Booking } from "@/types/booking.types";
 import { usePayments } from "@/lib/hooks/usePayments";
 
 const localBanks = [
-  { id: "bank1", name: "", logo: "" },
-  { id: "bank2", name: "", logo: "" },
-  { id: "bank3", name: "", logo: "" },
-  { id: "bank4", name: "", logo: "" },
-  { id: "bank5", name: "", logo: "" },
-  { id: "bank6", name: "", logo: "" },
-  { id: "bank7", name: "", logo: "" },
-  { id: "bank8", name: "", logo: "" },
+  { id: "chase", name: "Chase Bank", logo: "🏦" },
+  { id: "bof", name: "Bank of America", logo: "🏦" },
+  { id: "wellsfargo", name: "Wells Fargo", logo: "🏦" },
+  { id: "citi", name: "Citibank", logo: "🏦" },
+  { id: "capone", name: "Capital One", logo: "🏦" },
+  { id: "usbank", name: "US Bank", logo: "🏦" },
 ];
 
 const paymentMethods = [
@@ -52,7 +50,9 @@ export default function Payment() {
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
 
   const { getBookingById } = useBookings({ autoFetch: false });
-  const { createCheckoutSession, completePayment } = usePayments({ autoFetch: false });
+  const { createCheckoutSession, completePayment, createPaypalOrder } = usePayments({
+    autoFetch: false,
+  });
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -103,8 +103,31 @@ export default function Payment() {
             variant: "destructive",
           });
         }
+      } else if (paymentMethod === "paypal") {
+        // ✅ PAYPAL: Use PayPal API
+        const result = await createPaypalOrder(bookingId as string);
+
+        if (result.success && result.url) {
+          window.location.href = result.url; // Redirect to PayPal
+        } else {
+          toast({
+            title: "Payment Error",
+            description: result.error || "Failed to create PayPal order",
+            variant: "destructive",
+          });
+        }
       } else {
-        // ✅ CASH/WALLET/BANK/PAYPAL: Use completePayment API
+        if (paymentMethod === "bank" && !selectedBank) {
+          toast({
+            title: "Required",
+            description: "Please select a bank to proceed with the transfer",
+            variant: "destructive",
+          });
+          setIsLoading(false);
+          return;
+        }
+
+        // ✅ CASH/WALLET/BANK: Use completePayment API
         const result = await completePayment({
           bookingId: bookingId as string,
           method: paymentMethod,
@@ -134,7 +157,8 @@ export default function Payment() {
       console.error("Payment error:", err);
       toast({
         title: "Error",
-        description: err.message || "An unexpected error occurred. Please try again.",
+        description:
+          err.message || "An unexpected error occurred. Please try again.",
         variant: "destructive",
       });
     } finally {
@@ -145,7 +169,7 @@ export default function Payment() {
   return (
     <div className="min-h-screen bg-background">
       {/* Header */}
-      <header className="sticky top-0 z-50 glass border-b border-border">
+      <header className="sticky top-0 glass border-b border-border">
         <div className="container mx-auto px-4">
           <div className="flex items-center justify-between h-16">
             <Button
@@ -209,16 +233,18 @@ export default function Payment() {
                       <button
                         key={method.id}
                         type="button"
-                        onClick={() => setPaymentMethod(method.id as PaymentMethod)}
+                        onClick={() =>
+                          setPaymentMethod(method.id as PaymentMethod)
+                        }
                         className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === method.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/30"
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/30"
                           }`}
                       >
                         <div
                           className={`w-12 h-12 rounded-xl flex items-center justify-center ${paymentMethod === method.id
-                              ? "bg-primary text-primary-foreground"
-                              : "bg-secondary text-muted-foreground"
+                            ? "bg-primary text-primary-foreground"
+                            : "bg-secondary text-muted-foreground"
                             }`}
                         >
                           <method.icon className="w-6 h-6" />
@@ -243,7 +269,8 @@ export default function Payment() {
                   >
                     <CreditCard className="w-12 h-12 text-primary mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      You'll be securely redirected to our payment provider to complete your card payment.
+                      You'll be securely redirected to our payment provider to
+                      complete your card payment.
                     </p>
                   </motion.div>
                 )}
@@ -257,7 +284,8 @@ export default function Payment() {
                   >
                     <Wallet className="w-12 h-12 text-primary mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      You'll be redirected to complete payment via your digital wallet.
+                      You'll be redirected to complete payment via your digital
+                      wallet.
                     </p>
                   </motion.div>
                 )}
@@ -271,7 +299,8 @@ export default function Payment() {
                   >
                     <Sparkles className="w-12 h-12 text-primary mx-auto mb-4" />
                     <p className="text-muted-foreground">
-                      You'll be redirected to PayPal to complete your payment securely.
+                      You'll be redirected to PayPal to complete your payment
+                      securely.
                     </p>
                   </motion.div>
                 )}
@@ -293,18 +322,14 @@ export default function Payment() {
                           type="button"
                           onClick={() => setSelectedBank(bank.id)}
                           className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all min-h-[100px] ${selectedBank === bank.id
-                              ? "border-primary bg-primary/5"
-                              : "border-border hover:border-primary/30"
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/30"
                             }`}
                         >
                           {bank.name ? (
                             <>
                               {bank.logo && (
-                                <img
-                                  src={bank.logo}
-                                  alt={bank.name}
-                                  className="w-8 h-8 object-contain"
-                                />
+                                <span className="text-2xl mb-1">{bank.logo}</span>
                               )}
                               <span className="text-sm font-medium text-foreground text-center">
                                 {bank.name}
@@ -343,8 +368,8 @@ export default function Payment() {
                           Pay at Service
                         </h3>
                         <p className="text-sm text-muted-foreground">
-                          Pay directly to the service staff when they arrive. Cash
-                          or card accepted.
+                          Pay directly to the service staff when they arrive.
+                          Cash or card accepted.
                         </p>
                       </div>
                     </div>
@@ -354,7 +379,9 @@ export default function Payment() {
                 {/* Security Badge */}
                 <div className="flex items-center justify-center gap-2 text-sm text-muted-foreground">
                   <Shield className="w-4 h-4" />
-                  <span>Your payment is secured with 256-bit SSL encryption</span>
+                  <span>
+                    Your payment is secured with 256-bit SSL encryption
+                  </span>
                 </div>
 
                 {/* Pay Button */}
@@ -420,10 +447,13 @@ export default function Payment() {
                         <span className="text-muted-foreground">Time</span>
                         <span className="text-foreground">
                           {booking?.startTime
-                            ? new Date(booking.startTime).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
+                            ? new Date(booking.startTime).toLocaleTimeString(
+                              [],
+                              {
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              },
+                            )
                             : "N/A"}
                           {" - "}
                           {booking?.endTime
@@ -451,7 +481,9 @@ export default function Payment() {
                       </span>
                     </div>
                     <div className="flex justify-between text-sm">
-                      <span className="text-muted-foreground">Platform Fee</span>
+                      <span className="text-muted-foreground">
+                        Platform Fee
+                      </span>
                       <span className="text-foreground">
                         $
                         {(

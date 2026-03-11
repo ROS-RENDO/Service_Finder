@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react";
+import { useState, Suspense } from "react";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { motion } from "framer-motion";
@@ -14,7 +14,7 @@ import { FlickerDots } from "@/components/common/FlickerDots";
 
 type Step = "code" | "password" | "success";
 
-export default function ResetPassword() {
+function ResetPasswordInner() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const email = searchParams.get("email") || "";
@@ -28,28 +28,28 @@ export default function ResetPassword() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState("");
 
-const { verifyCode, resetPassword } = useAuth();
+  const { verifyCode, resetPassword } = useAuth();
 
   const handleVerifyCode = async (e: React.FormEvent) => {
-  e.preventDefault();
-  setError("");
+    e.preventDefault();
+    setError("");
 
-  if (code.length !== 6) {
-    setError("Please enter the complete 6-digit code");
-    return;
-  }
+    if (code.length !== 6) {
+      setError("Please enter the complete 6-digit code");
+      return;
+    }
 
-  setIsLoading(true);
+    setIsLoading(true);
 
-  try {
-    await verifyCode(email, code); // 👈 loader visible here
-    setStep("password");
-  } catch (err: any) {
-    setError(err.message || "Invalid verification code");
-  } finally {
-    setIsLoading(false);
-  }
-};
+    try {
+      await verifyCode(email, code); // 👈 loader visible here
+      setStep("password");
+    } catch (err: any) {
+      setError(err.message || "Invalid verification code");
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
 
   const handleResetPassword = async (e: React.FormEvent) => {
@@ -126,10 +126,10 @@ const { verifyCode, resetPassword } = useAuth();
                 </div>
               </div>
 
-              {error && <ErrorMessage message={error}/>}
+              {error && <ErrorMessage message={error} />}
 
               <Button type="submit" size="lg" className="w-full" disabled={isLoading}>
-                {isLoading ? <FlickerDots/> : "Verify Code"}
+                {isLoading ? <FlickerDots /> : "Verify Code"}
                 <ArrowRight className="w-4 h-4 ml-2" />
               </Button>
 
@@ -246,5 +246,13 @@ const { verifyCode, resetPassword } = useAuth();
         )}
       </motion.div>
     </div>
+  );
+}
+
+export default function ResetPassword() {
+  return (
+    <Suspense fallback={null}>
+      <ResetPasswordInner />
+    </Suspense>
   );
 }

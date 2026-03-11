@@ -61,8 +61,6 @@ export interface Company {
     max: number;
   };
 
-
-
   createdAt: string
   updatedAt: string
 

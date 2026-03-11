@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ChatBubble from "@/components/messages/ChatBubble";
@@ -20,7 +20,7 @@ import {
 import { useConversations, useMessages } from "@/lib/hooks/useChat";
 import { useAuthContext } from "@/lib/contexts/AuthContext";
 
-const Messages = () => {
+const MessagesInner = () => {
   const searchParams = useSearchParams();
   const { user } = useAuthContext();
   const { conversations } = useConversations();
@@ -84,9 +84,8 @@ const Messages = () => {
           <div className="flex h-full">
             {/* Conversations List */}
             <div
-              className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col ${
-                showMobileChat ? "hidden md:flex" : "flex"
-              }`}
+              className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col ${showMobileChat ? "hidden md:flex" : "flex"
+                }`}
             >
               <div className="p-4 border-b border-border">
                 <h1 className="font-display text-xl font-semibold text-foreground">
@@ -124,9 +123,8 @@ const Messages = () => {
 
             {/* Chat Area */}
             <div
-              className={`flex-1 flex flex-col ${
-                showMobileChat ? "flex" : "hidden md:flex"
-              }`}
+              className={`flex-1 flex flex-col ${showMobileChat ? "flex" : "hidden md:flex"
+                }`}
             >
               {displayUser ? (
                 <>
@@ -282,4 +280,10 @@ const Messages = () => {
   );
 };
 
-export default Messages;
+export default function Messages() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><span className="text-muted-foreground">Loading messages...</span></div>}>
+      <MessagesInner />
+    </Suspense>
+  );
+}

@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ChatBubble from "@/components/messages/ChatBubble";
@@ -7,7 +7,8 @@ import ConversationItem from "@/components/messages/ConversationItem";
 import { Button } from "@/components/ui/button";
 import Image from "next/image";
 import {
-  conversations,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  conversations as mockConversations,
   messages,
   workers,
   currentUserId,
@@ -25,11 +26,13 @@ import {
   MessageCircle,
 } from "lucide-react";
 
-const Messages = () => {
+// Type-coerce old mock data so it's treated as any throughout
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+const conversations = mockConversations as any[];
+
+const AdminMessagesInner = () => {
   const searchParams = useSearchParams();
-  const [activeConversationId, setActiveConversationId] = useState<
-    string | null
-  >(null);
+  const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [newMessage, setNewMessage] = useState("");
   const [showMobileChat, setShowMobileChat] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -40,7 +43,7 @@ const Messages = () => {
       : [];
 
   const activeConversation = conversations.find(
-    (c) => c.id === activeConversationId
+    (c: any) => c.id === activeConversationId
   );
   const activeWorker = activeConversation
     ? workers.find((w) => w.id === activeConversation.workerId)
@@ -55,7 +58,7 @@ const Messages = () => {
       setShowMobileChat(true);
     } else if (newWorkerParam) {
       const existingConv = conversations.find(
-        (c) => c.workerId === newWorkerParam
+        (c: any) => c.workerId === newWorkerParam
       );
       if (existingConv) {
         setActiveConversationId(existingConv.id);
@@ -122,9 +125,8 @@ const Messages = () => {
           <div className="flex h-full">
             {/* Conversations List */}
             <div
-              className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col ${
-                showMobileChat ? "hidden md:flex" : "flex"
-              }`}
+              className={`w-full md:w-80 lg:w-96 border-r border-border flex flex-col ${showMobileChat ? "hidden md:flex" : "flex"
+                }`}
             >
               <div className="p-4 border-b border-border">
                 <h1 className="font-display text-xl font-semibold text-foreground">
@@ -134,7 +136,7 @@ const Messages = () => {
 
               <div className="flex-1 overflow-y-auto p-2 space-y-1">
                 {conversations.length > 0 ? (
-                  conversations.map((conv) => (
+                  conversations.map((conv: any) => (
                     <ConversationItem
                       key={conv.id}
                       conversation={conv}
@@ -162,9 +164,8 @@ const Messages = () => {
 
             {/* Chat Area */}
             <div
-              className={`flex-1 flex flex-col ${
-                showMobileChat ? "flex" : "hidden md:flex"
-              }`}
+              className={`flex-1 flex flex-col ${showMobileChat ? "flex" : "hidden md:flex"
+                }`}
             >
               {displayWorker ? (
                 <>
@@ -200,25 +201,13 @@ const Messages = () => {
                     </div>
 
                     <div className="flex items-center gap-1">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground"
-                      >
+                      <Button variant="ghost" size="icon" className="text-muted-foreground">
                         <Phone className="h-5 w-5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground"
-                      >
+                      <Button variant="ghost" size="icon" className="text-muted-foreground">
                         <Video className="h-5 w-5" />
                       </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="text-muted-foreground"
-                      >
+                      <Button variant="ghost" size="icon" className="text-muted-foreground">
                         <MoreVertical className="h-5 w-5" />
                       </Button>
                     </div>
@@ -227,8 +216,9 @@ const Messages = () => {
                   {/* Messages */}
                   <div className="flex-1 overflow-y-auto p-4 space-y-3 bg-muted/30">
                     {messagesList.length > 0 ? (
-                      messagesList.map((msg) => (
-                        <ChatBubble key={msg.id} message={msg} />
+                      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+                      (messagesList as any[]).map((msg) => (
+                        <ChatBubble key={msg.id} message={msg} currentUserId={currentUserId} />
                       ))
                     ) : (
                       <div className="text-center py-12 text-muted-foreground">
@@ -244,18 +234,10 @@ const Messages = () => {
                   <div className="p-4 border-t border-border bg-card">
                     <div className="flex items-end gap-2">
                       <div className="flex gap-1">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground h-9 w-9"
-                        >
+                        <Button variant="ghost" size="icon" className="text-muted-foreground h-9 w-9">
                           <Paperclip className="h-5 w-5" />
                         </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="text-muted-foreground h-9 w-9"
-                        >
+                        <Button variant="ghost" size="icon" className="text-muted-foreground h-9 w-9">
                           <ImageIcon className="h-5 w-5" />
                         </Button>
                       </div>
@@ -310,4 +292,10 @@ const Messages = () => {
   );
 };
 
-export default Messages;
+export default function AdminMessages() {
+  return (
+    <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><span className="text-muted-foreground">Loading messages...</span></div>}>
+      <AdminMessagesInner />
+    </Suspense>
+  );
+}

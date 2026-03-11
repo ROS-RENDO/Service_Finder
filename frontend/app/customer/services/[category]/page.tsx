@@ -21,13 +21,17 @@ import { getServiceTypeIcon, getServiceTypeGradient, getServiceTypeImage } from 
 import { getCategoryIcon, getCategoryGradient } from "@/lib/visuals/categoryVisuals";
 import { LoadingCard } from "@/components/common/LoadingCard";
 import { ErrorMessage } from "@/components/common/ErrorMessage";
+import { useCompaniesByCategory } from "@/lib/hooks/useCompanies";
+import CompanyMap from "@/components/service/CompanyMap";
 
 export default function ServiceTypesPage() {
   const params = useParams();
   const router = useRouter();
   const categorySlug = params.category as string;
   const { serviceTypes, category, loading, error } = useServiceTypesByCategory(categorySlug);
+  const { companies, loading: companiesLoading } = useCompaniesByCategory({ categorySlug });
   const [searchQuery, setSearchQuery] = useState("");
+  const [hoveredCompanyId, setHoveredCompanyId] = useState<string | null>(null);
 
   if (loading) return <LoadingCard />;
   if (error) return <ErrorMessage message={error} />;
@@ -174,6 +178,25 @@ export default function ServiceTypesPage() {
               </motion.div>
             )}
           </div>
+
+          {/* Map of All Providers in this Category */}
+          {!companiesLoading && companies.length > 0 && (
+            <div className="container mx-auto px-4 py-8 mb-12 border-t mt-8">
+              <div className="flex items-center justify-between mb-6">
+                <div>
+                  <h2 className="font-display text-2xl font-bold">Providers in {category?.name || "this category"}</h2>
+                  <p className="text-muted-foreground">Detailed map view of all {companies.length} service providers available.</p>
+                </div>
+              </div>
+              <CompanyMap
+                companies={companies}
+                categorySlug={categorySlug}
+                selectedCompanyId={hoveredCompanyId}
+                onCompanySelect={setHoveredCompanyId}
+                variant="full"
+              />
+            </div>
+          )}
         </motion.div>
       </main>
 

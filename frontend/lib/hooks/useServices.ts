@@ -30,37 +30,37 @@ export function useServices(options: UseServicesOptions = {}) {
   }, [page, companyId, categoryId, isActive])
 
   const fetchServices = async () => {
-  setLoading(true)
-  setError(null)
-  try {
-    const params = new URLSearchParams()
-    if (companyId) params.append('companyId', companyId)
-    if (categoryId) params.append('categoryId', categoryId)
-    if (isActive !== undefined) params.append('isActive', isActive.toString())
-    params.append('page', page.toString())
-    params.append('limit', limit.toString())
+    setLoading(true)
+    setError(null)
+    try {
+      const params = new URLSearchParams()
+      if (companyId) params.append('companyId', companyId)
+      if (categoryId) params.append('categoryId', categoryId)
+      if (isActive !== undefined) params.append('isActive', isActive.toString())
+      params.append('page', page.toString())
+      params.append('limit', limit.toString())
 
-    const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services?${params}`)
-    if (response.ok) {
-      const result = await response.json()
-      setServices(result.data || [])  // ← Add fallback here
-      setPagination(result.pagination || {
-        total: 0,
-        page: 1,
-        limit: 10,
-        pages: 0
-      })
-    } else {
-      setError('Failed to fetch services')
+      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services?${params}`)
+      if (response.ok) {
+        const result = await response.json()
+        setServices(result.data || [])  // ← Add fallback here
+        setPagination(result.pagination || {
+          total: 0,
+          page: 1,
+          limit: 10,
+          pages: 0
+        })
+      } else {
+        setError('Failed to fetch services')
+        setServices([])  // ← Reset to empty array on error
+      }
+    } catch (err) {
+      setError('An error occurred')
       setServices([])  // ← Reset to empty array on error
+    } finally {
+      setLoading(false)
     }
-  } catch (err) {
-    setError('An error occurred')
-    setServices([])  // ← Reset to empty array on error
-  } finally {
-    setLoading(false)
   }
-}
 
   const getServiceById = async (id: string) => {
     setLoading(true)
@@ -68,7 +68,7 @@ export function useServices(options: UseServicesOptions = {}) {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services/${id}`)
       if (response.ok) {
         const data = await response.json()
-        return { success: true, service: data.service }
+        return { success: true, service: data.data || data.service }
       }
       return { success: false, error: 'Service not found' }
     } catch (err) {
@@ -152,27 +152,27 @@ export function useServices(options: UseServicesOptions = {}) {
   }
 
   const fetchServicesByCompany = async (companyId: string) => {
-  setLoading(true)
-  setError(null)
+    setLoading(true)
+    setError(null)
 
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/api/services/company/${companyId}`
-    )
+    try {
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/services/company/${companyId}`
+      )
 
-    if (!response.ok) {
-      setError('Failed to fetch company services')
-      return
+      if (!response.ok) {
+        setError('Failed to fetch company services')
+        return
+      }
+
+      const data = await response.json()
+      setServices(data.data)
+    } catch (err) {
+      setError('An error occurred')
+    } finally {
+      setLoading(false)
     }
-
-    const data = await response.json()
-    setServices(data.data)
-  } catch (err) {
-    setError('An error occurred')
-  } finally {
-    setLoading(false)
   }
-}
 
   return {
     services,

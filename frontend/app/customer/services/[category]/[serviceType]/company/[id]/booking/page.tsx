@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react";
+import { useState, useEffect, Suspense } from "react";
 import Link from "next/link";
 import { Service } from "@/types/service.types";
 import { useRouter, useParams, useSearchParams } from "next/navigation";
@@ -28,7 +28,7 @@ const steps = [
 ];
 
 const timeSlots = [
-  "08:00", "09:00", "10:00", "11:00", "12:00", 
+  "08:00", "09:00", "10:00", "11:00", "12:00",
   "13:00", "14:00", "15:00", "16:00", "17:00",
   "18:00", "19:00", "20:00", "21:00", "22:00",
   "23:00", "00:00"
@@ -36,21 +36,21 @@ const timeSlots = [
 
 
 
-export default function BookService() {
+function BookServiceInner() {
   const params = useParams();
   const searchParams = useSearchParams();
   const router = useRouter();
   const { toast } = useToast();
   const { createBooking, loading: bookingLoading } = useBookings({ autoFetch: false });
-  
+
   const [currentStep, setCurrentStep] = useState(1);
   const [service, setService] = useState<Service | null>(null);
   const [serviceLoading, setServiceLoading] = useState(true);
-  
+
   // Try to get companyId from URL params first, fallback to service data
   const urlCompanyId = params.companyId as string;
   const serviceId = searchParams.get("service");
-  
+
   // Use companyId from service data if URL param is not available
   const companyId = urlCompanyId || service?.companyId;
 
@@ -62,13 +62,15 @@ export default function BookService() {
     city: "",
     zip: "",
     notes: "",
+    latitude: null as number | null,
+    longitude: null as number | null,
   });
 
   // Fetch service data on mount
   useEffect(() => {
     const fetchService = async () => {
       if (!serviceId) return;
-      
+
       setServiceLoading(true);
       try {
         const response = await fetch(
@@ -112,10 +114,60 @@ export default function BookService() {
       setCurrentStep(currentStep - 1);
     }
   };
+  const handleGetLocation = () => {
+    if ("geolocation" in navigator) {
+      toast({
+        title: "Locating...",
+        description: "Getting your current location...",
+      });
+      navigator.geolocation.getCurrentPosition(
+        async (position) => {
+          const { latitude, longitude } = position.coords;
+          setAddress((prev) => ({ ...prev, latitude, longitude }));
+
+          try {
+            const res = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${latitude}&lon=${longitude}`);
+            const data = await res.json();
+            if (data && data.address) {
+              setAddress((prev) => ({
+                ...prev,
+                street: data.address.road || data.display_name || "Current Location",
+                city: data.address.city || data.address.town || data.address.village || data.address.state || "",
+                zip: data.address.postcode || "",
+              }));
+              toast({
+                title: "Location Found",
+                description: "Your address has been auto-filled.",
+              });
+            }
+          } catch (error) {
+            toast({
+              title: "Address partially filled",
+              description: "We got your coordinates, but couldn't reverse geocode the exact street name.",
+            });
+            setAddress((prev) => ({ ...prev, street: "Current Location", city: "GPS Coords" }));
+          }
+        },
+        (error) => {
+          toast({
+            title: "Location Error",
+            description: "Please enable location services or type your address manually.",
+            variant: "destructive",
+          });
+        }
+      );
+    } else {
+      toast({
+        title: "Not Supported",
+        description: "Geolocation is not supported by your browser.",
+        variant: "destructive",
+      });
+    }
+  };
 
   const handleConfirm = async () => {
     console.log('handleConfirm called');
-    
+
     if (!service) {
       console.log('No service found');
       toast({
@@ -125,10 +177,10 @@ export default function BookService() {
       });
       return;
     }
-    
+
     // Use companyId from service if not in URL
     const finalCompanyId = companyId || service.companyId;
-    
+
     if (!finalCompanyId) {
       toast({
         title: "Error",
@@ -137,16 +189,16 @@ export default function BookService() {
       });
       return;
     }
-    
+
     try {
       const serviceAddress = `${address.street}, ${address.city}, ${address.zip}`;
-      
+
       // Ensure IDs are valid numbers
       const parsedCompanyId = parseInt(finalCompanyId);
       const parsedServiceId = parseInt(serviceId!);
-      
+
       console.log('Parsed IDs:', { parsedCompanyId, parsedServiceId });
-      
+
       if (isNaN(parsedCompanyId) || isNaN(parsedServiceId)) {
         console.log('Invalid IDs');
         toast({
@@ -156,7 +208,7 @@ export default function BookService() {
         });
         return;
       }
-      
+
       const bookingData = {
         companyId: parsedCompanyId,
         serviceId: parsedServiceId,
@@ -164,7 +216,9 @@ export default function BookService() {
         startTime: selectedTime,
         serviceAddress: serviceAddress,
         // Optional fields - only include if they have values
-        ...(address.notes && { specialInstructions: address.notes })
+        ...(address.notes && { specialInstructions: address.notes }),
+        ...(address.latitude && { latitude: address.latitude }),
+        ...(address.longitude && { longitude: address.longitude }),
       };
 
       console.log('Booking data being sent:', bookingData);
@@ -174,7 +228,7 @@ export default function BookService() {
 
       if (result.success) {
         const bookingId = result.booking.id;
-        
+
         toast({
           title: "Booking Created!",
           description: "Redirecting to payment...",
@@ -248,7 +302,7 @@ export default function BookService() {
     );
   }
 
-  const platformFee = service.platformFee ;
+  const platformFee = service.platformFee;
   const totalPrice = service.basePrice + platformFee;
 
   return (
@@ -283,11 +337,10 @@ export default function BookService() {
             {steps.map((step) => (
               <div key={step.id} className="relative z-10 flex flex-col items-center">
                 <div
-                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${
-                    step.id <= currentStep
-                      ? "bg-primary text-primary-foreground"
-                      : "bg-secondary text-muted-foreground"
-                  }`}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${step.id <= currentStep
+                    ? "bg-primary text-primary-foreground"
+                    : "bg-secondary text-muted-foreground"
+                    }`}
                 >
                   {step.id < currentStep ? (
                     <Check className="w-5 h-5" />
@@ -340,11 +393,10 @@ export default function BookService() {
                             key={time}
                             type="button"
                             onClick={() => setSelectedTime(time)}
-                            className={`p-3 rounded-lg text-sm font-medium transition-all ${
-                              selectedTime === time
-                                ? "bg-primary text-primary-foreground"
-                                : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
-                            }`}
+                            className={`p-3 rounded-lg text-sm font-medium transition-all ${selectedTime === time
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-secondary-foreground hover:bg-secondary/80"
+                              }`}
                           >
                             {formatTimeDisplay(time)}
                           </button>
@@ -363,9 +415,20 @@ export default function BookService() {
                   exit={{ opacity: 0, x: -20 }}
                   className="bg-card rounded-2xl p-6 shadow-soft"
                 >
-                  <h2 className="font-display text-xl font-semibold text-foreground mb-6">
-                    Service Address
-                  </h2>
+                  <div className="flex items-center justify-between mb-6">
+                    <h2 className="font-display text-xl font-semibold text-foreground">
+                      Service Address
+                    </h2>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={handleGetLocation}
+                      className="gap-2"
+                    >
+                      <MapPin className="w-4 h-4" />
+                      Use Current Location
+                    </Button>
+                  </div>
 
                   <div className="space-y-4">
                     <div>
@@ -565,5 +628,13 @@ export default function BookService() {
         </div>
       </main>
     </div>
+  );
+}
+
+export default function BookService() {
+  return (
+    <Suspense fallback={null}>
+      <BookServiceInner />
+    </Suspense>
   );
 }

@@ -6,6 +6,7 @@ export type BookingStatus =
   | "pending"
   | "confirmed"
   | "in_progress"
+  | "enroute"
   | "completed"
   | "cancelled";
 
@@ -42,7 +43,7 @@ export interface Booking {
   createdAt: string;
   updatedAt: string;
   customer: Pick<User, "id" | "fullName" | "email" | "phone">;
-  company: Pick<Company, "id" | "name" | "phone" | "email">;
+  company: Pick<Company, "id" | "name" | "phone" | "email" | "ownerId">;
   service: Service;
   assignedStaff?: {
     id: string;

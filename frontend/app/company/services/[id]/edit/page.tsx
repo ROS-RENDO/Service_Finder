@@ -31,7 +31,7 @@ export default function ServiceEdit() {
             credentials: 'include'
           }
         );
-        
+
 
         if (response.ok) {
           const data = await response.json();
@@ -53,16 +53,18 @@ export default function ServiceEdit() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    
+
     const durationInput = formData.get("duration") as string;
     const durationMatch = durationInput.match(/(\d+)-(\d+)/);
-    
+
     const updateData = {
       name: formData.get("name") as string,
       description: formData.get("description") as string,
       basePrice: parseFloat(formData.get("price") as string),
       durationMin: durationMatch ? parseInt(durationMatch[1]) : service.durationMin,
       durationMax: durationMatch ? parseInt(durationMatch[2]) : service.durationMax,
+      features: (formData.get("features") as string).split(',').map(f => f.trim()).filter(Boolean),
+      image: formData.get("image") as string || null,
       isActive
     };
 
@@ -121,32 +123,53 @@ export default function ServiceEdit() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="name">Service Name</Label>
-              <Input 
-                id="name" 
+              <Input
+                id="name"
                 name="name"
-                defaultValue={service.name} 
+                defaultValue={service.name}
                 required
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description</Label>
-              <Textarea 
-                id="description" 
+              <Textarea
+                id="description"
                 name="description"
-                defaultValue={service.description} 
+                defaultValue={service.description}
                 rows={3}
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="features">Features (Comma Separated)</Label>
+              <Textarea
+                id="features"
+                name="features"
+                defaultValue={service.features?.join(', ')}
+                placeholder="Vacuuming All Floors, Dust Surfaces"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="image">Image URL</Label>
+              <Input
+                id="image"
+                name="image"
+                defaultValue={service.image || ''}
+                placeholder="https://images.unsplash.com/..."
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="price">Base Price ($)</Label>
-                <Input 
-                  id="price" 
+                <Input
+                  id="price"
                   name="price"
-                  type="number" 
+                  type="number"
                   step="0.01"
                   defaultValue={service.basePrice}
                   required
@@ -154,8 +177,8 @@ export default function ServiceEdit() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="duration">Estimated Duration</Label>
-                <Input 
-                  id="duration" 
+                <Input
+                  id="duration"
                   name="duration"
                   defaultValue={`${service.durationMin}-${service.durationMax}`}
                   required
@@ -168,25 +191,25 @@ export default function ServiceEdit() {
                 <Label htmlFor="active">Active Status</Label>
                 <p className="text-sm text-muted-foreground">Make this service available for booking</p>
               </div>
-              <Switch 
-                id="active" 
+              <Switch
+                id="active"
                 checked={isActive}
                 onCheckedChange={setIsActive}
               />
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                asChild 
+              <Button
+                type="button"
+                variant="outline"
+                asChild
                 className="flex-1"
                 disabled={loading}
               >
                 <Link href="/company/services">Cancel</Link>
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="flex-1"
                 disabled={loading}
               >

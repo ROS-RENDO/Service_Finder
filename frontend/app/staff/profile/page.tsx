@@ -90,11 +90,11 @@ export default function StaffProfile() {
   const avgRating =
     reviewCount > 0
       ? (
-          recentReviews.reduce(
-            (acc, r) => acc + (r.staffRating ?? r.companyRating ?? 0),
-            0
-          ) / reviewCount
-        ).toFixed(1)
+        recentReviews.reduce(
+          (acc, r) => acc + (r.staffRating ?? r.companyRating ?? 0),
+          0
+        ) / reviewCount
+      ).toFixed(1)
       : "—";
 
   return (
@@ -239,6 +239,56 @@ export default function StaffProfile() {
             <p className="text-sm text-muted-foreground">{stat.label}</p>
           </div>
         ))}
+      </div>
+
+      {/* Payout Details */}
+      <div className="animate-fade-in bg-card border border-border rounded-xl p-6" style={{ animationDelay: "0.2s" }}>
+        <div className="flex items-center gap-2 mb-4">
+          <DollarSign className="w-5 h-5 text-primary" />
+          <h2 className="text-lg font-semibold text-foreground">Payout Details</h2>
+        </div>
+        <p className="text-sm text-muted-foreground mb-4">Configure how you receive your earnings. (PayPal or Local Bank)</p>
+
+        <div className="space-y-4">
+          <div className="space-y-2">
+            <label className="text-sm font-medium">PayPal Email</label>
+            <input
+              type="email"
+              placeholder="staff@example.com"
+              className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+            />
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Bank Name</label>
+              <input
+                placeholder="e.g., Chase Bank"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Account Number</label>
+              <input
+                type="password"
+                placeholder="••••••••8901"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+              />
+            </div>
+            <div className="space-y-2">
+              <label className="text-sm font-medium">Routing Number</label>
+              <input
+                placeholder="123456789"
+                className="w-full px-3 py-2 rounded-lg border border-border bg-background text-foreground"
+              />
+            </div>
+            <div className="space-y-2 flex items-end">
+              <button className="w-full px-4 py-2 bg-secondary text-secondary-foreground rounded-lg hover:bg-secondary/80 font-medium transition-colors">
+                Save Payout Details
+              </button>
+            </div>
+          </div>
+        </div>
       </div>
 
       {/* Badges */}

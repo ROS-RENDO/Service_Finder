@@ -59,14 +59,14 @@ export default function ServiceNew() {
   const fetchInitialData = async () => {
     try {
       const token = localStorage.getItem('token');
-      
+
       // Fetch user's company
       const userResponse = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
         headers: {
           'Authorization': `Bearer ${token}`
         }
       });
-      
+
       if (userResponse.ok) {
         const userData = await userResponse.json();
         setCompanyId(userData.data?.company?.id || userData.data?.companyId);
@@ -87,7 +87,7 @@ export default function ServiceNew() {
   const fetchServiceTypesByCategory = async (categoryId: string) => {
     setLoadingServiceTypes(true);
     setSelectedServiceType(""); // Reset service type
-    
+
     try {
       // Find the category slug from the ID
       const category = categories.find(cat => cat.id === categoryId);
@@ -96,7 +96,7 @@ export default function ServiceNew() {
       const typesResponse = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/service-types/categories/${category.slug}`
       );
-      
+
       if (typesResponse.ok) {
         const typesData = await typesResponse.json();
         setServiceTypes(typesData.data?.serviceTypes || []);
@@ -118,10 +118,10 @@ export default function ServiceNew() {
     setLoading(true);
 
     const formData = new FormData(e.currentTarget);
-    
+
     const durationInput = formData.get("duration") as string;
     const durationMatch = durationInput.match(/(\d+)-(\d+)/);
-    
+
     if (!durationMatch) {
       toast.error("Please enter duration in format: 180-240 (minutes)");
       setLoading(false);
@@ -139,8 +139,8 @@ export default function ServiceNew() {
       basePrice: parseFloat(formData.get("price") as string),
       durationMin,
       durationMax,
-      features: [],
-      image: null,
+      features: (formData.get("features") as string).split(',').map(f => f.trim()).filter(Boolean),
+      image: formData.get("image") as string || null,
       isActive
     };
 
@@ -152,7 +152,7 @@ export default function ServiceNew() {
 
     try {
       const token = localStorage.getItem('token');
-      
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/services`, {
         method: "POST",
         headers: {
@@ -200,8 +200,8 @@ export default function ServiceNew() {
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Select 
-                value={selectedCategory} 
+              <Select
+                value={selectedCategory}
                 onValueChange={setSelectedCategory}
               >
                 <SelectTrigger>
@@ -219,18 +219,18 @@ export default function ServiceNew() {
 
             <div className="space-y-2">
               <Label htmlFor="serviceType">Service Type *</Label>
-              <Select 
-                value={selectedServiceType} 
+              <Select
+                value={selectedServiceType}
                 onValueChange={setSelectedServiceType}
                 disabled={!selectedCategory || loadingServiceTypes}
                 required
               >
                 <SelectTrigger>
                   <SelectValue placeholder={
-                    loadingServiceTypes 
-                      ? "Loading service types..." 
-                      : selectedCategory 
-                        ? "Select service type" 
+                    loadingServiceTypes
+                      ? "Loading service types..."
+                      : selectedCategory
+                        ? "Select service type"
                         : "Select category first"
                   } />
                 </SelectTrigger>
@@ -246,32 +246,51 @@ export default function ServiceNew() {
 
             <div className="space-y-2">
               <Label htmlFor="name">Service Name *</Label>
-              <Input 
-                id="name" 
+              <Input
+                id="name"
                 name="name"
-                placeholder="e.g., Deep Cleaning" 
+                placeholder="e.g., Deep Cleaning"
                 required
               />
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="description">Description *</Label>
-              <Textarea 
-                id="description" 
+              <Textarea
+                id="description"
                 name="description"
-                placeholder="Describe your service..." 
+                placeholder="Describe your service..."
                 rows={3}
                 required
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="features">Features (Comma Separated)</Label>
+              <Textarea
+                id="features"
+                name="features"
+                placeholder="Vacuuming All Floors, Dust Surfaces, Empty Trash"
+                rows={2}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="image">Image URL</Label>
+              <Input
+                id="image"
+                name="image"
+                placeholder="https://images.unsplash.com/..."
               />
             </div>
 
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label htmlFor="price">Base Price ($) *</Label>
-                <Input 
-                  id="price" 
+                <Input
+                  id="price"
                   name="price"
-                  type="number" 
+                  type="number"
                   step="0.01"
                   min="0"
                   placeholder="0.00"
@@ -280,8 +299,8 @@ export default function ServiceNew() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="duration">Duration (minutes) *</Label>
-                <Input 
-                  id="duration" 
+                <Input
+                  id="duration"
                   name="duration"
                   placeholder="e.g., 180-240"
                   required
@@ -295,25 +314,25 @@ export default function ServiceNew() {
                 <Label htmlFor="active">Active Status</Label>
                 <p className="text-sm text-muted-foreground">Make this service available for booking</p>
               </div>
-              <Switch 
-                id="active" 
+              <Switch
+                id="active"
                 checked={isActive}
                 onCheckedChange={setIsActive}
               />
             </div>
 
             <div className="flex gap-3 pt-4">
-              <Button 
-                type="button" 
-                variant="outline" 
-                asChild 
+              <Button
+                type="button"
+                variant="outline"
+                asChild
                 className="flex-1"
                 disabled={loading}
               >
                 <Link href="/company/services">Cancel</Link>
               </Button>
-              <Button 
-                type="submit" 
+              <Button
+                type="submit"
                 className="flex-1"
                 disabled={loading || !companyId || !selectedServiceType}
               >

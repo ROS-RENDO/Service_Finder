@@ -9,7 +9,7 @@ interface ServiceType {
   slug: string;
   description: string;
   icon: string;
-  image: string;
+  imageUrl: string;
   gradient: string;
   status: string;
   displayOrder: number;

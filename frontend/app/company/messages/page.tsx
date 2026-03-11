@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, Suspense } from "react";
 import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import ChatBubble from "@/components/messages/ChatBubble";
@@ -20,7 +20,7 @@ import { useConversations, useMessages } from "@/lib/hooks/useChat";
 import { useAuthContext } from "@/lib/contexts/AuthContext";
 import { toast } from "sonner";
 
-const Messages = () => {
+const MessagesInner = () => {
     const searchParams = useSearchParams();
     const { user } = useAuthContext();
     const { conversations, refetch: refetchConversations } = useConversations();
@@ -334,4 +334,10 @@ const Messages = () => {
     );
 };
 
-export default Messages;
+export default function Messages() {
+    return (
+        <Suspense fallback={<div className="flex items-center justify-center min-h-screen"><span className="text-muted-foreground">Loading messages...</span></div>}>
+            <MessagesInner />
+        </Suspense>
+    );
+}

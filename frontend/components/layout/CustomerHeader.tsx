@@ -4,12 +4,14 @@ import { Bell, User, LogOut, MessageCircle } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
-import { useAuthContext } from '@/lib/contexts/AuthContext'
 import apiClient from '@/lib/api/client'
+import { useAuthContext } from '@/lib/contexts/AuthContext'
+import { useConversations } from '@/lib/hooks/useChat';
 
 export default function CustomerHeader() {
   const router = useRouter()
   const { user, checkAuth } = useAuthContext()
+  const { conversations } = useConversations();
 
   const handleLogout = async () => {
     try {
@@ -43,13 +45,18 @@ export default function CustomerHeader() {
           {/* Notifications */}
           <button className="p-2 hover:bg-gray-100 rounded-full relative">
             <Bell size={20} />
-            <span className="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+            <span className="absolute top-1 right-1 w-3 h-3 bg-red-500 rounded-full border-2 border-white"></span>
           </button>
 
           {/* Profile Dropdown */}
           <div className="flex items-center gap-3 pl-3 border-l">
             <Link href="/customer/messages" className="relative p-2 text-muted-foreground hover:text-foreground hover:bg-gray-100 rounded-full transition-colors">
               <MessageCircle className="h-5 w-5" />
+              {conversations.length > 0 && (
+                <span className="absolute -top-1 -right-1 flex h-4 w-4 items-center justify-center rounded-full bg-red-500 text-[10px] text-white">
+                  {conversations.length}
+                </span>
+              )}
             </Link>
             <div className="text-right">
               <p className="text-sm font-medium text-gray-900">{user?.fullName}</p>

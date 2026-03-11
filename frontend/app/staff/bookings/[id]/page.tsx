@@ -21,6 +21,7 @@ import {
   Ban,
   ThumbsUp,
   Loader2,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -30,10 +31,17 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useStaffBookings } from "@/lib/hooks/useStaff";
 import type { Booking, BookingStatus } from "@/types/booking.types";
+import dynamic from "next/dynamic";
+
+const DynamicStaffBookingMapCore = dynamic(
+  () => import("@/components/service/StaffBookingMapCore"),
+  { ssr: false, loading: () => <div className="h-64 w-full bg-slate-100 animate-pulse flex items-center justify-center">Loading Map...</div> }
+);
 
 const statusConfig = {
   pending: { color: "bg-amber-500 text-white", icon: Clock, label: "Pending Approval" },
   confirmed: { color: "bg-accent text-accent-foreground", icon: CheckCircle2, label: "Confirmed" },
+  enroute: { color: "bg-blue-500 text-white", icon: Navigation, label: "En Route" },
   in_progress: { color: "bg-primary text-primary-foreground", icon: Timer, label: "In Progress" },
   completed: { color: "bg-emerald-500 text-white", icon: CheckCircle2, label: "Completed" },
   cancelled: { color: "bg-destructive text-destructive-foreground", icon: XCircle, label: "Cancelled" },
@@ -43,14 +51,38 @@ export default function StaffBookingDetail() {
   const params = useParams();
   const router = useRouter();
   const id = typeof params?.id === 'string' ? params.id : Array.isArray(params?.id) ? params.id[0] : undefined;
-  
+
   const [booking, setBooking] = useState<Booking | null>(null);
   const [loading, setLoading] = useState(true);
   const [isUpdating, setIsUpdating] = useState(false);
+  const [confirmingCash, setConfirmingCash] = useState(false);
   const [completedTasks, setCompletedTasks] = useState<Set<number>>(new Set());
   const { getBookingById, updateBookingStatus } = useStaffBookings({
     autoFetch: false,
   });
+
+  const fetchBooking = async () => {
+    if (!id) return;
+    try {
+      setLoading(true);
+      const result = await getBookingById(id);
+      if (!result.success || !result.booking) {
+        toast.error(result.error || "Booking not found");
+        setTimeout(() => router.push("/staff/bookings"), 2000);
+        return;
+      }
+      setBooking(result.booking as Booking);
+      const savedTasks = localStorage.getItem(`booking-${id}-tasks`);
+      if (savedTasks) {
+        setCompletedTasks(new Set(JSON.parse(savedTasks)));
+      }
+    } catch (error) {
+      console.error("Error fetching booking:", error);
+      toast.error("Failed to load booking details");
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Default tasks if service doesn't have features
   const defaultTasks = [
@@ -62,36 +94,31 @@ export default function StaffBookingDetail() {
 
   // Fetch booking details
   useEffect(() => {
-    const fetchBooking = async () => {
-      if (!id) return;
-
-      try {
-        setLoading(true);
-        const result = await getBookingById(id);
-
-        if (!result.success || !result.booking) {
-          toast.error(result.error || "Booking not found");
-          setTimeout(() => router.push("/staff/bookings"), 2000);
-          return;
-        }
-
-        setBooking(result.booking as Booking);
-
-        // Load completed tasks from localStorage
-        const savedTasks = localStorage.getItem(`booking-${id}-tasks`);
-        if (savedTasks) {
-          setCompletedTasks(new Set(JSON.parse(savedTasks)));
-        }
-      } catch (error) {
-        console.error("Error fetching booking:", error);
-        toast.error("Failed to load booking details");
-      } finally {
-        setLoading(false);
-      }
-    };
-
     fetchBooking();
   }, [id]);
+
+  const handleConfirmCash = async () => {
+    if (!booking) return;
+    setConfirmingCash(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/cash/confirm`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        credentials: "include",
+        body: JSON.stringify({ bookingId: booking.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to confirm cash");
+
+      toast.success("✅ Cash received confirmed! Booking marked as completed.");
+      fetchBooking();
+    } catch (err: unknown) {
+      toast.error(err instanceof Error ? err.message : "Confirmation failed");
+    } finally {
+      setConfirmingCash(false);
+    }
+  };
 
   // Save completed tasks to localStorage
   useEffect(() => {
@@ -187,11 +214,11 @@ export default function StaffBookingDetail() {
     } else if (compareDate.getTime() === tomorrow.getTime()) {
       return `Tomorrow, ${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' })}`;
     } else {
-      return date.toLocaleDateString('en-US', { 
-        weekday: 'long', 
-        month: 'short', 
-        day: 'numeric', 
-        year: 'numeric' 
+      return date.toLocaleDateString('en-US', {
+        weekday: 'long',
+        month: 'short',
+        day: 'numeric',
+        year: 'numeric'
       });
     }
   };
@@ -302,24 +329,12 @@ export default function StaffBookingDetail() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <div className="h-64 w-full bg-gradient-to-br from-blue-50 to-blue-100 dark:from-blue-950 dark:to-blue-900 flex flex-col items-center justify-center gap-3 relative overflow-hidden">
-                {/* Decorative map-like pattern */}
-                <div className="absolute inset-0 opacity-10">
-                  <div className="absolute top-1/4 left-1/4 w-32 h-32 border-2 border-primary rounded-full" />
-                  <div className="absolute top-1/2 left-1/2 w-24 h-24 border-2 border-primary rounded-full" />
-                  <div className="absolute bottom-1/4 right-1/4 w-40 h-40 border-2 border-primary rounded-full" />
-                </div>
-                
-                {/* Location marker */}
-                <div className="relative z-10 flex flex-col items-center gap-2">
-                  <div className="w-16 h-16 bg-primary rounded-full flex items-center justify-center shadow-lg border-4 border-white dark:border-gray-800 animate-bounce">
-                    <MapPin className="w-8 h-8 text-primary-foreground" />
-                  </div>
-                  <div className="bg-white dark:bg-gray-800 px-4 py-2 rounded-full shadow-md">
-                    <p className="text-sm font-medium">{booking.customer.fullName}</p>
-                  </div>
-                </div>
-              </div>
+              <DynamicStaffBookingMapCore
+                latitude={booking.latitude != null ? Number(booking.latitude) : null}
+                longitude={booking.longitude != null ? Number(booking.longitude) : null}
+                customerName={booking.customer.fullName}
+                serviceAddress={booking.serviceAddress}
+              />
               <div className="p-4 bg-secondary/50">
                 <p className="text-sm font-medium">{booking.serviceAddress}</p>
                 {!booking.latitude && !booking.longitude && (
@@ -405,26 +420,26 @@ export default function StaffBookingDetail() {
                   </div>
                 </div>
               </div>
-              
+
               <Separator />
-              
-                <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
-                    <DollarSign className="w-4 h-4 text-muted-foreground" />
-                    <div>
-                      <p className="text-xs text-muted-foreground">Your Earnings</p>
-                      <p className="text-lg font-bold text-primary">${Number(booking.companyEarnings ?? 0).toFixed(2)}</p>
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <p className="text-xs text-muted-foreground">Total Price</p>
-                    <p className="text-sm font-medium">${Number(booking.totalPrice ?? 0).toFixed(2)}</p>
-                    <p className="text-xs text-muted-foreground">Platform Fee: ${Number(booking.platformFee ?? 0).toFixed(2)}</p>
+
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <DollarSign className="w-4 h-4 text-muted-foreground" />
+                  <div>
+                    <p className="text-xs text-muted-foreground">Your Earnings</p>
+                    <p className="text-lg font-bold text-primary">${Number(booking.companyEarnings ?? 0).toFixed(2)}</p>
                   </div>
                 </div>
-              
+                <div className="text-right">
+                  <p className="text-xs text-muted-foreground">Total Price</p>
+                  <p className="text-sm font-medium">${Number(booking.totalPrice ?? 0).toFixed(2)}</p>
+                  <p className="text-xs text-muted-foreground">Platform Fee: ${Number(booking.platformFee ?? 0).toFixed(2)}</p>
+                </div>
+              </div>
+
               <Separator />
-              
+
               <div>
                 <p className="text-sm font-medium mb-2">Service Description</p>
                 <div className="bg-secondary rounded-lg p-3">
@@ -467,31 +482,27 @@ export default function StaffBookingDetail() {
                     key={index}
                     onClick={() => toggleTask(index)}
                     disabled={booking.status === 'completed' || booking.status === 'cancelled'}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${
-                      completedTasks.has(index)
-                        ? "bg-primary/10 text-primary"
-                        : "bg-secondary hover:bg-secondary/80"
-                    } ${
-                      (booking.status === 'completed' || booking.status === 'cancelled')
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-all ${completedTasks.has(index)
+                      ? "bg-primary/10 text-primary"
+                      : "bg-secondary hover:bg-secondary/80"
+                      } ${(booking.status === 'completed' || booking.status === 'cancelled')
                         ? 'opacity-50 cursor-not-allowed'
                         : ''
-                    }`}
+                      }`}
                   >
                     <div
-                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${
-                        completedTasks.has(index)
-                          ? "border-primary bg-primary"
-                          : "border-muted-foreground"
-                      }`}
+                      className={`w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all flex-shrink-0 ${completedTasks.has(index)
+                        ? "border-primary bg-primary"
+                        : "border-muted-foreground"
+                        }`}
                     >
                       {completedTasks.has(index) && (
                         <CheckCircle2 className="w-3 h-3 text-primary-foreground" />
                       )}
                     </div>
                     <span
-                      className={`text-sm text-left ${
-                        completedTasks.has(index) ? "line-through" : ""
-                      }`}
+                      className={`text-sm text-left ${completedTasks.has(index) ? "line-through" : ""
+                        }`}
                     >
                       {task}
                     </span>
@@ -501,6 +512,55 @@ export default function StaffBookingDetail() {
             </CardContent>
           </Card>
         </motion.div>
+
+        {/* Cash Confirmation Card (for staff when pay at service) */}
+        {booking.payment?.method === 'cash' &&
+          booking.status === 'confirmed' && (
+            <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ delay: 0.22 }}>
+              <Card className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/30">
+                <CardContent className="pt-6">
+                  <div className="flex gap-4">
+                    <div className="w-12 h-12 shrink-0 rounded-full bg-amber-500 flex items-center justify-center">
+                      <DollarSign className="w-6 h-6 text-white" />
+                    </div>
+                    <div>
+                      <h3 className="font-semibold text-amber-800 dark:text-amber-200 flex items-center gap-2">
+                        Cash Payment Pending
+                      </h3>
+                      <p className="text-sm text-amber-700 dark:text-amber-400 mt-1 mb-4 leading-relaxed">
+                        This customer chose to pay <strong>${Number(booking.totalPrice).toFixed(2)}</strong> in cash at the time of service. Only click confirm below once you have physically received the cash.
+                      </p>
+
+                      <div className="flex items-start gap-3 p-3 bg-amber-100/50 dark:bg-amber-900/50 rounded-lg mb-4">
+                        <AlertTriangle className="w-5 h-5 text-amber-600 mt-0.5 shrink-0" />
+                        <div className="text-xs text-amber-800 dark:text-amber-300">
+                          <strong>Security Warning:</strong> Action is irreversible. Your account will be recorded as having collected this cash payment. Do not confirm if the customer has not paid.
+                        </div>
+                      </div>
+
+                      <Button
+                        onClick={handleConfirmCash}
+                        disabled={confirmingCash}
+                        className="w-full sm:w-auto bg-amber-600 hover:bg-amber-700 text-white"
+                      >
+                        {confirmingCash ? (
+                          <>
+                            <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                            Confirming...
+                          </>
+                        ) : (
+                          <>
+                            <CheckCircle2 className="w-4 h-4 mr-2" />
+                            Confirm Cash Received
+                          </>
+                        )}
+                      </Button>
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
 
         {/* Status-specific UI */}
         {booking.status === "completed" && (
@@ -560,7 +620,7 @@ export default function StaffBookingDetail() {
         >
           {/* Pending: Approve Job */}
           {booking.status === "pending" && (
-            <Button 
+            <Button
               className="flex-1"
               onClick={handleApproveJob}
               disabled={isUpdating}
@@ -581,8 +641,8 @@ export default function StaffBookingDetail() {
 
           {/* Confirmed: Start Job */}
           {booking.status === "confirmed" && (
-            <Button 
-              className="flex-1" 
+            <Button
+              className="flex-1"
               onClick={handleStartJob}
               disabled={isUpdating}
             >
@@ -599,7 +659,7 @@ export default function StaffBookingDetail() {
               )}
             </Button>
           )}
-          
+
           {/* In Progress: Complete Job */}
           {booking.status === "in_progress" && (
             <Button
