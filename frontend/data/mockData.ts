@@ -119,7 +119,8 @@ export const companies: Company[] = [
   {
     id: "1",
     name: "SparkleClean Pro",
-    logo: "https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?w=200&h=200&fit=crop",
+    logoUrl:
+      "https://images.unsplash.com/photo-1628177142898-93e36e4e3a50?w=200&h=200&fit=crop",
     rating: 4.8,
     reviewCount: 324,
     location: "Downtown",
@@ -165,7 +166,8 @@ export const companies: Company[] = [
   {
     id: "2",
     name: "FlowFix Plumbing",
-    logo: "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=200&h=200&fit=crop",
+    logoUrl:
+      "https://images.unsplash.com/photo-1607472586893-edb57bdc0e39?w=200&h=200&fit=crop",
     rating: 4.6,
     reviewCount: 189,
     location: "Westside",
@@ -207,7 +209,8 @@ export const companies: Company[] = [
   {
     id: "3",
     name: "BrightSpark Electric",
-    logo: "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=200&h=200&fit=crop",
+    logoUrl:
+      "https://images.unsplash.com/photo-1621905251189-08b45d6a269e?w=200&h=200&fit=crop",
     rating: 4.9,
     reviewCount: 256,
     location: "Northside",
@@ -249,7 +252,8 @@ export const companies: Company[] = [
   {
     id: "4",
     name: "CoolBreeze HVAC",
-    logo: "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200&h=200&fit=crop",
+    logoUrl:
+      "https://images.unsplash.com/photo-1585771724684-38269d6639fd?w=200&h=200&fit=crop",
     rating: 4.7,
     reviewCount: 142,
     location: "Eastside",
@@ -291,7 +295,8 @@ export const companies: Company[] = [
   {
     id: "5",
     name: "GreenThumb Gardens",
-    logo: "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=200&h=200&fit=crop",
+    logoUrl:
+      "https://images.unsplash.com/photo-1416879595882-3373a0480b5b?w=200&h=200&fit=crop",
     rating: 4.5,
     reviewCount: 98,
     location: "Suburbs",
@@ -333,7 +338,8 @@ export const companies: Company[] = [
   {
     id: "6",
     name: "ColorCraft Painters",
-    logo: "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=200&h=200&fit=crop",
+    logoUrl:
+      "https://images.unsplash.com/photo-1562259949-e8e7689d7828?w=200&h=200&fit=crop",
     rating: 4.8,
     reviewCount: 176,
     location: "Central",
