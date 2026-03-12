@@ -4,6 +4,9 @@ const transporter = require("../config/email");
 const { getPasswordResetEmail } = require("../utils/emailTemplates");
 const { generateToken } = require("../utils/jwt");
 const cookie = require("cookie");
+const { OAuth2Client } = require("google-auth-library");
+
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
 const getCookieOptions = () => ({
   httpOnly: true, // ✅ Cannot be accessed by JavaScript (XSS protection)
@@ -341,9 +344,78 @@ const resetPassword = async (req, res, next) => {
   }
 };
 
+// Google Login/Register
+const googleLogin = async (req, res, next) => {
+  try {
+    const { token, role = "customer" } = req.body;
+
+    if (!token) {
+      return res.status(400).json({ error: "Google token is required" });
+    }
+
+    // Verify Google ID token
+    const ticket = await googleClient.verifyIdToken({
+      idToken: token,
+      audience: process.env.GOOGLE_CLIENT_ID,
+    });
+    
+    const payload = ticket.getPayload();
+    const { email, name, picture, sub: googleId } = payload;
+
+    // Check if user already exists
+    let user = await prisma.user.findUnique({ where: { email } });
+
+    if (!user) {
+      // Create user if they don't exist
+      // Generate a random password since they use Google
+      const randomPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10);
+      const passwordHash = await bcrypt.hash(randomPassword, 10);
+
+      user = await prisma.user.create({
+        data: {
+          fullName: name,
+          email,
+          avatar: picture,
+          passwordHash,
+          role,
+          status: "active",
+        },
+      });
+    }
+
+    // Check if account is active
+    if (user.status !== "active") {
+      return res.status(403).json({ error: "Account is suspended" });
+    }
+
+    // Update last login
+    await prisma.user.update({
+      where: { id: user.id },
+      data: { lastLoginAt: new Date() },
+    });
+
+    // Generate token
+    const jwtToken = generateToken(user.id);
+    res.cookie("token", jwtToken, getCookieOptions());
+
+    // Return user data without password
+    const { passwordHash, ...userWithoutPassword } = user;
+
+    res.json({
+      message: "Google login successful",
+      user: userWithoutPassword,
+      token: jwtToken,
+    });
+  } catch (error) {
+    console.error("Error in googleLogin:", error);
+    next(error);
+  }
+};
+
 module.exports = {
   register,
   login,
+  googleLogin,
   logout,
   getMe,
   requestPasswordReset,

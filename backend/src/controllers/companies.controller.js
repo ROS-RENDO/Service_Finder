@@ -127,7 +127,7 @@ const getCompanyById = async (req, res, next) => {
       country: company.country,
 
       // Location
-      coordinate: {
+      coordinates: {
         latitude: company.latitude ? parseFloat(company.latitude) : null,
         longitude: company.longitude ? parseFloat(company.longitude) : null,
       },
@@ -454,7 +454,7 @@ const getCompaniesByServiceType = async (req, res, next) => {
 
         location: company.serviceAreas.length > 0 ? 'All Areas' : company.city,
 
-        coordinate: {
+        coordinates: {
           latitude: company.latitude ? Number(company.latitude) : null,
           longitude: company.longitude ? Number(company.longitude) : null,
         },
@@ -493,6 +493,192 @@ const getCompaniesByServiceType = async (req, res, next) => {
           name: serviceType.name,
           slug: serviceType.slug,
           icon: serviceType.icon,
+        },
+        companies: formattedCompanies,
+        pagination: {
+          total,
+          page: parseInt(page),
+          limit: parseInt(limit),
+          pages: Math.ceil(total / limit)
+        }
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+const getCompaniesByCategory = async (req, res, next) => {
+  try {
+    const { categorySlug } = req.params;
+    const { search, city, minRating, sortBy = 'rating', page = 1, limit = 20 } = req.query;
+
+    const skip = (parseInt(page) - 1) * parseInt(limit);
+
+    // Get category
+    const category = await prisma.category.findUnique({
+      where: { slug: categorySlug }
+    });
+
+    if (!category || category.status !== 'active') {
+      return res.status(404).json({
+        success: false,
+        message: 'Category not found'
+      });
+    }
+
+    // Build where clause
+    let whereClause = {
+      verificationStatus: 'verified',
+      services: {
+        some: {
+          isActive: true,
+          serviceType: {
+            categoryId: category.id
+          }
+        }
+      }
+    };
+
+    // Add search filter
+    if (search) {
+      whereClause.OR = [
+        { name: { contains: search, mode: 'insensitive' } },
+        { description: { contains: search, mode: 'insensitive' } },
+        { city: { contains: search, mode: 'insensitive' } }
+      ];
+    }
+
+    // Add city filter
+    if (city) {
+      whereClause.city = city;
+    }
+
+    // Get companies with pagination
+    const [companies, total] = await Promise.all([
+      prisma.company.findMany({
+        where: whereClause,
+        skip,
+        take: parseInt(limit),
+        include: {
+          ratingSummary: true,
+          services: {
+            where: {
+              isActive: true,
+              serviceType: {
+                categoryId: category.id
+              }
+            },
+            select: {
+              id: true,
+              name: true,
+              basePrice: true,
+              durationMin: true,
+              durationMax: true,
+            }
+          },
+          serviceAreas: {
+            select: {
+              city: true,
+              coverageRadiusKm: true
+            }
+          }
+        }
+      }),
+      prisma.company.count({ where: whereClause })
+    ]);
+
+    // Filter by rating if specified
+    let filteredCompanies = companies;
+    if (minRating) {
+      filteredCompanies = companies.filter(c =>
+        c.ratingSummary && parseFloat(c.ratingSummary.averageRating) >= parseFloat(minRating)
+      );
+    }
+
+    // Sort companies
+    if (sortBy === 'rating') {
+      filteredCompanies.sort((a, b) => {
+        const ratingA = a.ratingSummary?.averageRating || 0;
+        const ratingB = b.ratingSummary?.averageRating || 0;
+        return parseFloat(ratingB) - parseFloat(ratingA);
+      });
+    } else if (sortBy === 'reviews') {
+      filteredCompanies.sort((a, b) => {
+        const reviewsA = a.ratingSummary?.totalReviews || 0;
+        const reviewsB = b.ratingSummary?.totalReviews || 0;
+        return reviewsB - reviewsA;
+      });
+    } else if (sortBy === 'price_low') {
+      filteredCompanies.sort((a, b) => {
+        const priceA = a.services[0]?.basePrice || 0;
+        const priceB = b.services[0]?.basePrice || 0;
+        return parseFloat(priceA) - parseFloat(priceB);
+      });
+    } else if (sortBy === 'price_high') {
+      filteredCompanies.sort((a, b) => {
+        const priceA = a.services[0]?.basePrice || 0;
+        const priceB = b.services[0]?.basePrice || 0;
+        return parseFloat(priceB) - parseFloat(priceA);
+      });
+    }
+
+    // Format response
+    const currentYear = new Date().getFullYear();
+
+    const formattedCompanies = filteredCompanies.map(company => {
+      const prices = (company.services || []).map(s => Number(s.basePrice));
+      const minPrice = prices.length ? Math.min(...prices) : 0;
+      const maxPrice = prices.length ? Math.max(...prices) : 0;
+
+      return {
+        id: company.id.toString(),
+        name: company.name,
+
+        logoUrl: company.logoUrl,
+        coverImageUrl: company.coverImageUrl,
+
+        rating: company.ratingSummary?.averageRating
+          ? Number(company.ratingSummary.averageRating)
+          : null,
+
+        reviews: company.ratingSummary?.totalReviews ?? 0,
+
+        location: company.serviceAreas.length > 0 ? 'All Areas' : company.city,
+
+        coordinates: {
+          latitude: company.latitude ? Number(company.latitude) : null,
+          longitude: company.longitude ? Number(company.longitude) : null,
+        },
+        verified: company.verificationStatus === 'verified',
+
+        yearsInBusiness: company.establishedYear
+          ? currentYear - company.establishedYear
+          : null,
+
+        priceRange: {
+          min: minPrice,
+          max: maxPrice
+        },
+
+        description: company.description,
+
+        highlights: Array.isArray(company.cardHighlights)
+          ? company.cardHighlights
+          : [],
+
+        responseTime: 'Usually responds in 1 hour'
+      };
+    });
+
+
+    res.json({
+      success: true,
+      data: {
+        category: {
+          id: category.id.toString(),
+          name: category.name,
+          slug: category.slug
         },
         companies: formattedCompanies,
         pagination: {
@@ -622,7 +808,7 @@ const getCompanyDetails = async (req, res, next) => {
         registrationNumber: company.registrationNumber,
         address: company.address,
         city: company.city,
-        coordinate: {
+        coordinates: {
           latitude: company.latitude ? parseFloat(company.latitude) : null,
           longitude: company.longitude ? parseFloat(company.longitude) : null,
         },
@@ -894,94 +1080,13 @@ const assignStaffToBooking = async (req, res) => {
         error: 'Staff member not found or not active in this company'
       });
     }
-
-    // Check if there's already a service request for this booking
-    const existingRequest = await prisma.serviceRequest.findFirst({
-      where: {
-        companyId: company.id,
-        customerId: booking.customerId,
-        serviceId: booking.serviceId,
-        status: {
-          in: ['pending', 'approved'],
-        },
-      },
-    });
-
-    if (existingRequest) {
-      // Update existing request
-      const updatedRequest = await prisma.serviceRequest.update({
-        where: { id: existingRequest.id },
-        data: {
-          assignedStaffId: staffMember.id,
-          notes: notes || null,
-          updatedAt: new Date(),
-        },
-        include: {
-          assignedStaff: {
-            include: {
-              user: {
-                select: {
-                  id: true,
-                  fullName: true,
-                  email: true,
-                  avatar: true,
-                },
-              },
-            },
-          },
-        },
-      });
-
-      // Update booking status to confirmed if it's pending
-      if (booking.status === 'pending') {
-        await prisma.booking.update({
-          where: { id: BigInt(bookingId) },
-          data: {
-            status: 'confirmed',
-            updatedAt: new Date(),
-          },
-        });
-
-        // Log status change
-        await prisma.bookingStatusLog.create({
-          data: {
-            bookingId: BigInt(bookingId),
-            oldStatus: 'pending',
-            newStatus: 'confirmed',
-            changedBy: userId,
-            changedAt: new Date(),
-          },
-        });
-      }
-
-      return res.json({
-        success: true,
-        message: 'Staff assigned successfully',
-        serviceRequest: {
-          ...updatedRequest,
-          id: updatedRequest.id.toString(),
-          assignedStaff: {
-            ...updatedRequest.assignedStaff.user,
-            id: updatedRequest.assignedStaff.user.id.toString(),
-          },
-        },
-      });
-    }
-
-    // Create new service request
-    const serviceRequest = await prisma.serviceRequest.create({
+    // Update booking status to confirmed if it's pending, and set assignedStaffId
+    const updatedBooking = await prisma.booking.update({
+      where: { id: BigInt(bookingId) },
       data: {
-        customerId: booking.customerId,
-        companyId: company.id,
-        serviceId: booking.serviceId,
         assignedStaffId: staffMember.id,
-        requestedDate: booking.bookingDate,
-        requestedTime: booking.startTime,
-        serviceAddress: booking.serviceAddress,
-        latitude: booking.latitude,
-        longitude: booking.longitude,
-        status: 'pending',
-        notes: notes || null,
+        status: booking.status === 'pending' ? 'confirmed' : booking.status,
+        updatedAt: new Date(),
       },
       include: {
         assignedStaff: {
@@ -999,17 +1104,8 @@ const assignStaffToBooking = async (req, res) => {
       },
     });
 
-    // Update booking status to confirmed if it's pending
+    // Log status change if it changed
     if (booking.status === 'pending') {
-      await prisma.booking.update({
-        where: { id: BigInt(bookingId) },
-        data: {
-          status: 'confirmed',
-          updatedAt: new Date(),
-        },
-      });
-
-      // Log status change
       await prisma.bookingStatusLog.create({
         data: {
           bookingId: BigInt(bookingId),
@@ -1023,22 +1119,22 @@ const assignStaffToBooking = async (req, res) => {
 
     // Convert BigInt to string for JSON response
     const response = {
-      ...serviceRequest,
-      id: serviceRequest.id.toString(),
-      customerId: serviceRequest.customerId.toString(),
-      companyId: serviceRequest.companyId.toString(),
-      serviceId: serviceRequest.serviceId.toString(),
-      assignedStaffId: serviceRequest.assignedStaffId?.toString(),
-      assignedStaff: serviceRequest.assignedStaff ? {
-        ...serviceRequest.assignedStaff.user,
-        id: serviceRequest.assignedStaff.user.id.toString(),
+      ...updatedBooking,
+      id: updatedBooking.id.toString(),
+      customerId: updatedBooking.customerId.toString(),
+      companyId: updatedBooking.companyId.toString(),
+      serviceId: updatedBooking.serviceId.toString(),
+      assignedStaffId: updatedBooking.assignedStaffId?.toString(),
+      assignedStaff: updatedBooking.assignedStaff ? {
+        ...updatedBooking.assignedStaff.user,
+        id: updatedBooking.assignedStaff.user.id.toString(),
       } : null,
     };
 
-    res.status(201).json({
+    res.status(200).json({
       success: true,
       message: 'Staff assigned successfully',
-      serviceRequest: response,
+      booking: response,
     });
   } catch (error) {
     console.error('Error assigning staff to booking:', error);
@@ -1184,6 +1280,61 @@ const getCompanyBookings = async (req, res) => {
   } catch (error) {
     console.error('Error fetching company bookings:', error);
     res.status(500).json({ error: 'Failed to fetch bookings' });
+  }
+};
+
+// GET /api/companies/bookings/:id - Get single booking detail for company
+const getCompanyBookingById = async (req, res) => {
+  try {
+    const userId = BigInt(req.user.id);
+    const { id } = req.params;
+
+    const company = await prisma.company.findFirst({ where: { ownerId: userId } });
+    if (!company) return res.status(404).json({ error: 'Company not found' });
+
+    const booking = await prisma.booking.findFirst({
+      where: { id: BigInt(id), companyId: company.id },
+      include: {
+        customer: { select: { id: true, fullName: true, email: true, phone: true } },
+        service: { select: { id: true, name: true, description: true, basePrice: true } },
+      },
+    });
+
+    if (!booking) return res.status(404).json({ error: 'Booking not found' });
+
+    // Find assigned staff via service requests
+    const serviceRequest = await prisma.serviceRequest.findFirst({
+      where: { companyId: company.id, customerId: booking.customerId, serviceId: booking.serviceId },
+      include: {
+        assignedStaff: {
+          include: { user: { select: { id: true, fullName: true, avatar: true } } },
+        },
+      },
+      orderBy: { createdAt: 'desc' },
+    });
+
+    res.json({
+      success: true,
+      booking: {
+        ...booking,
+        id: booking.id.toString(),
+        customerId: booking.customerId.toString(),
+        companyId: booking.companyId.toString(),
+        serviceId: booking.serviceId.toString(),
+        customer: { ...booking.customer, id: booking.customer.id.toString() },
+        service: { ...booking.service, id: booking.service.id.toString() },
+        assignedStaff: serviceRequest?.assignedStaff
+          ? {
+            id: serviceRequest.assignedStaff.id.toString(),
+            fullName: serviceRequest.assignedStaff.user.fullName,
+            role: serviceRequest.assignedStaff.role,
+          }
+          : null,
+      },
+    });
+  } catch (error) {
+    console.error('Error fetching company booking by ID:', error);
+    res.status(500).json({ error: 'Failed to fetch booking' });
   }
 };
 
@@ -1633,11 +1784,13 @@ module.exports = {
   createCompany,
   updateCompany,
   deleteCompany,
+  getCompaniesByCategory,
   getCompaniesByServiceType,
   getCompanyDetails,
   getCompanyStaff,
   assignStaffToBooking,
   getCompanyBookings,
+  getCompanyBookingById,
   addStaffMember,
   getStaffMemberById,
   updateStaffMember,

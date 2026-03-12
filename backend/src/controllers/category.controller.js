@@ -33,6 +33,7 @@ const getAllCategories = async (req, res, next) => {
       slug: cat.slug,
       description: cat.description,
       icon: cat.icon,
+      imageUrl: cat.imageUrl,
       status: cat.status,
       displayOrder: cat.displayOrder,
       serviceTypesCount: cat.serviceTypes.length,
@@ -109,6 +110,7 @@ const getCategoryBySlug = async (req, res, next) => {
         slug: category.slug,
         description: category.description,
         icon: category.icon,
+        imageUrl: category.imageUrl,
         status: category.status,
         serviceTypes: formattedServiceTypes
       }
@@ -124,7 +126,7 @@ const getCategoryBySlug = async (req, res, next) => {
  */
 const createCategory = async (req, res, next) => {
   try {
-    const { name, slug, description, icon, displayOrder } = req.body;
+    const { name, slug, description, icon, imageUrl, displayOrder } = req.body;
 
     // Check if slug already exists
     const existing = await prisma.category.findUnique({
@@ -144,6 +146,7 @@ const createCategory = async (req, res, next) => {
         slug,
         description,
         icon,
+        imageUrl,
         status: 'active',
         displayOrder: displayOrder || 0
       }
@@ -158,6 +161,7 @@ const createCategory = async (req, res, next) => {
         slug: category.slug,
         description: category.description,
         icon: category.icon,
+        imageUrl: category.imageUrl,
         status: category.status,
         displayOrder: category.displayOrder
       }
@@ -215,6 +219,7 @@ const updateCategory = async (req, res, next) => {
         slug: updatedCategory.slug,
         description: updatedCategory.description,
         icon: updatedCategory.icon,
+        imageUrl: updatedCategory.imageUrl,
         status: updatedCategory.status,
         displayOrder: updatedCategory.displayOrder
       }

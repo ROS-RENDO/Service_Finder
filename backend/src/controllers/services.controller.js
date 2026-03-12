@@ -132,6 +132,8 @@ const getServiceById = async (req, res, next) => {
         platformFee: parseFloat(service.basePrice) * 0.1,
         durationMin: service.durationMin,
         durationMax: service.durationMax,
+        image: service.image,
+        features: service.features,
         isActive: service.isActive,
         company: {
           id: service.company.id.toString(),
@@ -142,8 +144,8 @@ const getServiceById = async (req, res, next) => {
           phone: service.company.phone,
           email: service.company.email,
           verificationStatus: service.company.verificationStatus,
-          rating: service.company.ratingSummary?.averageRating 
-            ? parseFloat(service.company.ratingSummary.averageRating) 
+          rating: service.company.ratingSummary?.averageRating
+            ? parseFloat(service.company.ratingSummary.averageRating)
             : null,
           reviewCount: service.company.ratingSummary?.totalReviews || 0,
           serviceAreas: service.company.serviceAreas

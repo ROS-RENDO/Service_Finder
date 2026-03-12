@@ -1,5 +1,12 @@
 const prisma = require("../config/database");
 const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const paypal = require("@paypal/checkout-server-sdk");
+
+// Configure PayPal Environment
+const clientId = process.env.PAYPAL_CLIENT_ID || "PAYPAL-SANDBOX-CLIENT-ID";
+const clientSecret = process.env.PAYPAL_CLIENT_SECRET || "PAYPAL-SANDBOX-CLIENT-SECRET";
+const environment = new paypal.core.SandboxEnvironment(clientId, clientSecret);
+const paypalClient = new paypal.core.PayPalHttpClient(environment);
 
 const getAllPayments = async (req, res, next) => {
   try {
@@ -620,29 +627,41 @@ const completePayment = async (req, res, next) => {
         },
       });
 
+      let notificationMessage = `Your payment of $${booking.totalPrice} has been processed successfully.`;
+      let notificationTitle = "Payment Successful";
+      let responseMessage = "Payment completed successfully!";
+
+      if (method === "cash") {
+        notificationTitle = "Booking Confirmed";
+        notificationMessage = `Your booking has been confirmed. Please pay $${booking.totalPrice} in cash when the service is provided.`;
+        responseMessage = "Booking confirmed. Pay cash at service time.";
+      } else if (method === "bank") {
+        notificationTitle = "Bank Transfer Received";
+        notificationMessage = `We have received your local bank transfer of $${booking.totalPrice} for booking #${bookingId}.`;
+        responseMessage = "Bank transfer confirmed!";
+      } else if (method === "paypal") {
+        notificationTitle = "PayPal Payment Successful";
+        notificationMessage = `Your PayPal payment of $${booking.totalPrice} has been processed completely.`;
+        responseMessage = "PayPal payment completed successfully!";
+      }
+
       // Create notification
       await tx.notification.create({
         data: {
           userId: req.user.id,
-          title: method === "cash" ? "Booking Confirmed" : "Payment Successful",
-          message:
-            method === "cash"
-              ? `Your booking has been confirmed. Please pay $${booking.totalPrice} in cash when the service is provided.`
-              : `Your payment of $${booking.totalPrice} has been processed successfully.`,
+          title: notificationTitle,
+          message: notificationMessage,
           isRead: false,
         },
       });
 
-      return { payment, booking: updatedBooking };
+      return { payment, booking: updatedBooking, responseMessage };
     });
 
     // ✅ Serialize BigInt to string before sending response
     res.json({
       success: true,
-      message:
-        method === "cash"
-          ? "Booking confirmed. Pay cash at service time."
-          : "Payment completed successfully!",
+      message: result.responseMessage,
       payment: {
         id: result.payment.id.toString(),
         bookingId: result.payment.bookingId.toString(),
@@ -664,6 +683,316 @@ const completePayment = async (req, res, next) => {
   }
 };
 
+/**
+ * ✅ SECURITY: Confirm Cash Received (called by COMPANY/STAFF only)
+ *
+ * For "pay at service" bookings, payment stays "pending" until the company
+ * physically confirms receipt — preventing fraud from either side.
+ */
+const confirmCashReceived = async (req, res, next) => {
+  try {
+    const { bookingId, staffNotes } = req.body;
+
+    const allowedRoles = ["company_admin", "staff", "admin"];
+    if (!allowedRoles.includes(req.user.role)) {
+      return res.status(403).json({
+        error: "Only company staff or administrators can confirm cash payments",
+      });
+    }
+
+    const booking = await prisma.booking.findUnique({
+      where: { id: BigInt(bookingId) },
+      include: {
+        payment: true,
+        company: true,
+        customer: true,
+      },
+    });
+
+    if (!booking) return res.status(404).json({ error: "Booking not found" });
+
+    if (req.user.role === "company_admin") {
+      const companyOfUser = await prisma.company.findUnique({ where: { ownerId: req.user.id } });
+      if (!companyOfUser || companyOfUser.id.toString() !== booking.companyId.toString()) {
+        return res.status(403).json({ error: "Access denied – not your company" });
+      }
+    }
+
+    if (!booking.payment || booking.payment.method !== "cash") {
+      return res.status(400).json({ error: "No pending cash payment found for this booking" });
+    }
+
+    if (booking.payment.status === "paid") {
+      return res.status(400).json({ error: "Cash payment already confirmed" });
+    }
+
+    const result = await prisma.$transaction(async (tx) => {
+      const payment = await tx.payment.update({
+        where: { id: booking.payment.id },
+        data: {
+          status: "paid",
+          paidAt: new Date(),
+          transactionRef: `CASH-${bookingId}-${Date.now()}`,
+        },
+      });
+
+      const updatedBooking = await tx.booking.update({
+        where: { id: BigInt(bookingId) },
+        data: {
+          status: "completed",
+          actualEndTime: new Date(),
+          ...(staffNotes && { staffNotes }),
+        },
+      });
+
+      await tx.bookingStatusLog.create({
+        data: {
+          bookingId: BigInt(bookingId),
+          oldStatus: booking.status,
+          newStatus: "completed",
+          changedBy: req.user.id,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: booking.customerId,
+          title: "💵 Cash Payment Confirmed",
+          message: `Your cash payment of $${booking.payment.amount} for booking #${bookingId} has been confirmed by ${booking.company.name}. Thank you!`,
+          isRead: false,
+        },
+      });
+
+      await tx.notification.create({
+        data: {
+          userId: req.user.id,
+          title: "✅ Cash Collected",
+          message: `Cash of $${booking.payment.amount} collected for booking #${bookingId} from ${booking.customer.fullName}.`,
+          isRead: false,
+        },
+      });
+
+      return { payment, booking: updatedBooking };
+    });
+
+    res.json({
+      success: true,
+      message: "Cash payment confirmed. Booking marked as completed.",
+      payment: {
+        id: result.payment.id.toString(),
+        status: result.payment.status,
+        paidAt: result.payment.paidAt,
+        transactionRef: result.payment.transactionRef,
+      },
+      booking: {
+        id: result.booking.id.toString(),
+        status: result.booking.status,
+      },
+    });
+  } catch (error) {
+    console.error("Confirm cash received error:", error);
+    next(error);
+  }
+};
+
+/**
+ * Create a PayPal Order
+ */
+const createPaypalOrder = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+
+    // Verify booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: BigInt(bookingId) },
+      include: {
+        service: true,
+        company: true,
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.customerId !== req.user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (booking.status !== "pending") {
+      return res.status(400).json({
+        error: "This booking has already been processed",
+        currentStatus: booking.status
+      });
+    }
+
+    // PayPal API requires string amount. e.g "100.00"
+    const totalAmount = Number(booking.totalPrice).toFixed(2);
+
+    const request = new paypal.orders.OrdersCreateRequest();
+    request.prefer("return=representation");
+    request.requestBody({
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          reference_id: bookingId.toString(),
+          description: `Booking #${bookingId} - ${booking.service.name}`,
+          amount: {
+            currency_code: "USD",
+            value: totalAmount,
+          },
+        },
+      ],
+      application_context: {
+        return_url: `${process.env.FRONTEND_URL}/customer/bookings/${bookingId}/payments/success?method=paypal&booking_id=${bookingId}`,
+        cancel_url: `${process.env.FRONTEND_URL}/payment/cancelled?booking_id=${bookingId}&reason=cancelled`,
+        shipping_preference: "NO_SHIPPING",
+        user_action: "PAY_NOW",
+      },
+    });
+
+    const response = await paypalClient.execute(request);
+    const orderID = response.result.id;
+
+    // Find the approve link
+    const approveLink = response.result.links.find(
+      (link) => link.rel === "approve"
+    );
+
+    if (!approveLink) {
+      throw new Error("Could not find PayPal approve link");
+    }
+
+    // Upsert Payment Record
+    const existingPayment = await prisma.payment.findUnique({
+      where: { bookingId: BigInt(bookingId) },
+    });
+
+    if (existingPayment) {
+      await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          transactionRef: orderID,
+          status: "pending",
+          method: "paypal",
+        },
+      });
+    } else {
+      await prisma.payment.create({
+        data: {
+          bookingId: BigInt(bookingId),
+          userId: req.user.id,
+          method: "paypal",
+          amount: booking.totalPrice,
+          status: "pending",
+          transactionRef: orderID,
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      orderId: orderID,
+      url: approveLink.href,
+    });
+  } catch (error) {
+    console.error("Create PayPal Order error:", error);
+    res.status(500).json({ error: "Failed to create PayPal order" });
+  }
+};
+
+/**
+ * Capture a PayPal Order
+ */
+const capturePaypalOrder = async (req, res) => {
+  try {
+    const { orderID, bookingId } = req.body;
+
+    const request = new paypal.orders.OrdersCaptureRequest(orderID);
+    request.requestBody({});
+
+    const response = await paypalClient.execute(request);
+
+    if (response.result.status === "COMPLETED") {
+      // ✅ Use transaction to ensure both payment and booking are updated together
+      const result = await prisma.$transaction(async (tx) => {
+        // Update payment
+        const existingPayment = await tx.payment.findFirst({
+          where: { transactionRef: orderID },
+        });
+
+        let payment;
+        if (existingPayment) {
+          payment = await tx.payment.update({
+            where: { id: existingPayment.id },
+            data: {
+              status: "paid",
+              paidAt: new Date(),
+            },
+          });
+        } else {
+          payment = await tx.payment.create({
+            data: {
+              bookingId: BigInt(bookingId),
+              userId: req.user.id,
+              method: "paypal",
+              amount: response.result.purchase_units[0].amount.value,
+              status: "paid",
+              transactionRef: orderID,
+              paidAt: new Date(),
+            }
+          });
+        }
+
+        // Update booking status
+        const updatedBooking = await tx.booking.update({
+          where: { id: BigInt(bookingId) },
+          data: {
+            status: "confirmed",
+          },
+        });
+
+        // Create status log
+        await tx.bookingStatusLog.create({
+          data: {
+            bookingId: BigInt(bookingId),
+            oldStatus: "pending",
+            newStatus: "confirmed",
+            changedBy: req.user.id,
+          },
+        });
+
+        // Create notification
+        await tx.notification.create({
+          data: {
+            userId: req.user.id,
+            title: "PayPal Payment Successful",
+            message: `Your PayPal payment has been processed completely.`,
+            isRead: false,
+          },
+        });
+
+        return { payment, booking: updatedBooking };
+      });
+
+      res.json({
+        success: true,
+        message: "PayPal payment captured successfully!",
+        payment: {
+          id: result.payment.id.toString(),
+          bookingId: result.payment.bookingId.toString(),
+          status: result.payment.status,
+        }
+      });
+    } else {
+      res.status(400).json({ error: "Payment was not completed" });
+    }
+  } catch (error) {
+    console.error("Capture PayPal Order error:", error);
+    res.status(500).json({ error: "Failed to capture PayPal order" });
+  }
+};
+
 module.exports = {
   getAllPayments,
   getPaymentById,
@@ -672,4 +1001,7 @@ module.exports = {
   createCheckoutSession,
   handleStripeWebhook,
   completePayment,
+  confirmCashReceived,
+  createPaypalOrder,
+  capturePaypalOrder,
 };

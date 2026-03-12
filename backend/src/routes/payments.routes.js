@@ -6,6 +6,9 @@ const {
   updatePayment,
   createCheckoutSession,
   completePayment,
+  confirmCashReceived,
+  createPaypalOrder,
+  capturePaypalOrder,
 } = require("../controllers/payments.controller");
 const { authenticate, authorize } = require("../middleware/auth");
 
@@ -16,8 +19,11 @@ router.get("/:id", authenticate, getPaymentById);
 router.post("/", authenticate, createPayment);
 
 router.post("/checkout-session", authenticate, createCheckoutSession);
+router.post("/paypal/order", authenticate, createPaypalOrder);
+router.post("/paypal/capture", authenticate, capturePaypalOrder);
 
-router.post("/complete",authenticate,  completePayment);
+router.post("/complete", authenticate, completePayment);
+router.post("/cash/confirm", authenticate, confirmCashReceived);
 
 router.put(
   "/:id",

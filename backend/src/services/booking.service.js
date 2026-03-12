@@ -29,6 +29,7 @@ class BookingService {
                         phone: true,
                         email: true,
                         address: true,
+                        ownerId: true,
                     },
                 },
                 service: {

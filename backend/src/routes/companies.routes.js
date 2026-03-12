@@ -10,11 +10,13 @@ const {
   createCompany,
   updateCompany,
   deleteCompany,
+  getCompaniesByCategory,
   getCompaniesByServiceType,
   getCompanyDetails,
   getCompanyStaff,
   assignStaffToBooking,
   getCompanyBookings,
+  getCompanyBookingById,
   addStaffMember,
   getStaffMemberById,
   updateStaffMember,
@@ -64,6 +66,7 @@ router.post(
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 router.get('/', getAllCompanies);
+router.get('/categories/:categorySlug', getCompaniesByCategory);
 router.get('/categories/:categorySlug/service-types/:serviceTypeSlug', getCompaniesByServiceType);
 
 // ─── Protected company-scoped routes (must come BEFORE /:id) ─────────────────
@@ -73,6 +76,7 @@ router.get('/staff', authenticate, authorize('company_admin', 'admin'), getCompa
 router.post('/staff', authenticate, authorize('company_admin', 'admin'), addStaffMember);
 router.post('/assign-staff', authenticate, authorize('company_admin', 'admin'), assignStaffToBooking);
 router.get('/bookings', authenticate, authorize('company_admin', 'admin'), getCompanyBookings);
+router.get('/bookings/:id', authenticate, authorize('company_admin', 'admin'), getCompanyBookingById);
 
 // ─── Staff member CRUD (must come BEFORE /:id to avoid conflict) ─────────────
 router.get('/staff/:id', authenticate, authorize('company_admin', 'admin'), getStaffMemberById);
