@@ -93,7 +93,7 @@ export default function CompaniesPage() {
       render: (item: Company) => (
         <div className="flex items-center gap-1">
           <Star className="h-4 w-4 fill-warning text-warning" />
-          <span className="font-medium">{item.ratingSummary?.averageRating?.toFixed(1) || "—"}</span>
+          <span className="font-medium">{item.ratingSummary?.averageRating != null ? Number(item.ratingSummary.averageRating).toFixed(1) : "—"}</span>
         </div>
       ),
     },

@@ -2,13 +2,14 @@
 import { useState } from "react";
 import { usePathname } from "next/navigation";
 import { motion, AnimatePresence } from "framer-motion";
-import { Menu, X, Sparkles, User, LogIn } from "lucide-react";
+import { Menu, X, Sparkles, User, LogIn, Map } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import Link from "next/link";
 import { useAuthContext } from "@/lib/contexts/AuthContext";
 
 const navLinks = [
   { name: "Services", href: "/services" },
+  { name: "Explore Map", href: "/customer/map" },
   { name: "How It Works", href: "/#how-it-works" },
   { name: "About", href: "/#about" },
 ];

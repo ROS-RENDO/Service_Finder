@@ -25,7 +25,7 @@ export default function CompaniesPage() {
   const serviceTypeSlug = params.serviceType as string;
 
   const [searchQuery, setSearchQuery] = useState("");
-  const [viewMode, setViewMode] = useState<"split" | "list" | "map">("split");
+  const [viewMode, setViewMode] = useState<"list" | "map">("list");
   const [selectedCity, setSelectedCity] = useState("");
   const [minRating, setMinRating] = useState<number | undefined>(undefined);
   const [sortBy, setSortBy] = useState<'rating' | 'reviews' | 'price_low' | 'price_high'>('rating');
@@ -100,109 +100,7 @@ export default function CompaniesPage() {
     );
   }
 
-  const CompanyCard = ({ company, index }: { company: any; index: number }) => {
-    const isSelected = hoveredCompanyId === company.id;
-    return (
-      <motion.div
-        initial={{ opacity: 0, y: 16 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ delay: index * 0.04 }}
-        onMouseEnter={() => setHoveredCompanyId(company.id)}
-        onMouseLeave={() => setHoveredCompanyId(null)}
-      >
-        <Link href={`/customer/services/${categorySlug}/${serviceTypeSlug}/company/${company.id}`}>
-          <div className={`group bg-card rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer border-2 ${isSelected ? "border-primary shadow-elevated scale-[1.01]" : "border-transparent shadow-card hover:shadow-elevated"
-            }`}>
-            {/* Cover Image */}
-            <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
-              {company.coverImageUrl && (
-                <Image width={600} height={240} src={company.coverImageUrl} alt={company.name}
-                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
-                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                />
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
-              {/* Number badge matching map pin */}
-              <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shadow">
-                {index + 1}
-              </div>
-              {company.logoUrl && (
-                <div className="absolute bottom-3 left-3">
-                  <Image width={44} height={44} src={company.logoUrl} alt={company.name}
-                    className="w-11 h-11 rounded-xl object-cover border-2 border-white shadow-lg"
-                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
-                  />
-                </div>
-              )}
-              {company.verificationStatus && (
-                <div className="absolute top-3 right-3">
-                  <Badge className="bg-white/90 text-primary gap-1 text-xs">
-                    <Shield className="w-3 h-3" />Verified
-                  </Badge>
-                </div>
-              )}
-            </div>
 
-            {/* Content */}
-            <div className="p-4">
-              <div className="flex items-start justify-between mb-1">
-                <h3 className="font-display font-semibold text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">
-                  {company.name}
-                </h3>
-                {company.rating && (
-                  <div className="flex items-center gap-0.5 bg-primary/10 px-2 py-0.5 rounded-lg ml-2 shrink-0">
-                    <Star className="w-3.5 h-3.5 fill-primary text-primary" />
-                    <span className="font-semibold text-xs text-primary">
-                      {typeof company.rating === 'number' ? company.rating.toFixed(1) : company.rating}
-                    </span>
-                  </div>
-                )}
-              </div>
-              <p className="text-xs text-muted-foreground mb-2 line-clamp-1">
-                {company.description || 'Professional service provider'}
-              </p>
-              <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
-                <div className="flex items-center gap-1">
-                  <MapPin className="w-3 h-3" />
-                  {company.location || company.city || 'Multiple locations'}
-                </div>
-                {company.yearsInBusiness && (
-                  <div className="flex items-center gap-1">
-                    <Clock className="w-3 h-3" />
-                    {company.yearsInBusiness}y exp
-                  </div>
-                )}
-              </div>
-              {company.Highlights && company.Highlights.length > 0 && (
-                <div className="flex flex-wrap gap-1 mb-3">
-                  {company.Highlights.slice(0, 2).map((h: any, i: number) => (
-                    <Badge key={i} variant="secondary" className="text-xs py-0">
-                      <CheckCircle2 className="w-2.5 h-2.5 mr-1" />{h.label}
-                    </Badge>
-                  ))}
-                </div>
-              )}
-              <div className="flex items-center justify-between pt-3 border-t border-border">
-                <div>
-                  {company.priceRange && (
-                    <>
-                      <span className="text-base font-bold text-foreground">${company.priceRange.min}</span>
-                      {company.priceRange.max > company.priceRange.min && (
-                        <span className="text-muted-foreground text-xs"> – ${company.priceRange.max}</span>
-                      )}
-                    </>
-                  )}
-                </div>
-                <Button size="sm" className="gap-1 h-7 text-xs">
-                  View <ArrowRight className="w-3 h-3" />
-                </Button>
-              </div>
-            </div>
-          </div>
-        </Link>
-      </motion.div>
-    );
-  };
 
   return (
     <div className="min-h-screen bg-background flex flex-col">
@@ -234,10 +132,9 @@ export default function CompaniesPage() {
                 <div className="flex items-center gap-3">
                   {/* View toggle */}
                   <div className="hidden md:flex bg-white/20 rounded-xl p-1 gap-0.5">
-                    {(["split", "list", "map"] as const).map((mode) => (
+                    {(["list", "map"] as const).map((mode) => (
                       <Button key={mode} variant="ghost" size="sm" onClick={() => setViewMode(mode)}
                         className={`gap-1.5 text-xs capitalize px-3 ${viewMode === mode ? "bg-white text-primary font-semibold" : "text-white hover:bg-white/20 hover:text-white"}`}>
-                        {mode === "split" && <><LayoutGrid className="w-3.5 h-3.5" /><Map className="w-3.5 h-3.5" />Split</>}
                         {mode === "list" && <><LayoutGrid className="w-3.5 h-3.5" />List</>}
                         {mode === "map" && <><Map className="w-3.5 h-3.5" />Map</>}
                       </Button>
@@ -286,63 +183,115 @@ export default function CompaniesPage() {
 
           {/* Content */}
           <div className="flex-1 container mx-auto px-4 py-6">
-
-            {/* ═══ SPLIT VIEW ═══ */}
-            {viewMode === "split" && (
-              <div className="flex gap-6">
-                {/* Left: scrollable company list */}
-                <div className="w-full md:w-[420px] lg:w-[460px] shrink-0">
-                  <p className="text-sm text-muted-foreground mb-3">
-                    {pagination.total} {pagination.total === 1 ? 'company' : 'companies'} found
-                  </p>
-                  <div className="space-y-3 overflow-y-auto pr-1 pb-4" style={{ maxHeight: "calc(100vh - 310px)" }}>
-                    {companies.length === 0 && !loading ? (
-                      <div className="text-center py-12">
-                        <Search className="w-12 h-12 text-muted-foreground mx-auto mb-3" />
-                        <h3 className="font-semibold text-foreground mb-1">No companies found</h3>
-                        <p className="text-muted-foreground text-sm mb-4">Try adjusting your search or filters</p>
-                        <Button variant="outline" size="sm" onClick={() => { setSearchQuery(""); setMinRating(undefined); }}>
-                          Clear filters
-                        </Button>
-                      </div>
-                    ) : (
-                      companies.map((company, i) => <CompanyCard key={company.id} company={company} index={i} />)
-                    )}
-
-                    {pagination.pages > 1 && (
-                      <div className="flex justify-center items-center gap-2 pt-3">
-                        <Button variant="outline" size="sm" disabled={currentPage === 1} onClick={() => setCurrentPage(p => p - 1)}>
-                          <ArrowLeft className="w-4 h-4" />
-                        </Button>
-                        <span className="text-sm text-muted-foreground">Page {currentPage} of {pagination.pages}</span>
-                        <Button variant="outline" size="sm" disabled={currentPage === pagination.pages} onClick={() => setCurrentPage(p => p + 1)}>
-                          <ArrowRight className="w-4 h-4" />
-                        </Button>
-                      </div>
-                    )}
-                  </div>
-                </div>
-
-                {/* Right: sticky map panel */}
-                <div className="hidden md:block flex-1 sticky top-20" style={{ height: "calc(100vh - 310px)" }}>
-                  <CompanyMap
-                    companies={companies}
-                    categorySlug={categorySlug}
-                    serviceTypeSlug={serviceTypeSlug}
-                    selectedCompanyId={hoveredCompanyId}
-                    onCompanySelect={setHoveredCompanyId}
-                    variant="side"
-                  />
-                </div>
-              </div>
-            )}
-
             {/* ═══ LIST ONLY ═══ */}
             {viewMode === "list" && (
               <>
                 <p className="text-sm text-muted-foreground mb-4">{pagination.total} {pagination.total === 1 ? 'company' : 'companies'} found</p>
                 <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-5">
-                  {companies.map((company, i) => <CompanyCard key={company.id} company={company} index={i} />)}
+                  {companies.map((company, index) => {
+                    const isSelected = hoveredCompanyId === company.id;
+                    return (
+                      <motion.div
+                        key={company.id}
+                        initial={{ opacity: 0, y: 16 }}
+                        animate={{ opacity: 1, y: 0 }}
+                        transition={{ delay: index * 0.04 }}
+                        onMouseEnter={() => setHoveredCompanyId(company.id)}
+                        onMouseLeave={() => setHoveredCompanyId(null)}
+                      >
+                        <Link href={`/customer/services/${categorySlug}/${serviceTypeSlug}/company/${company.id}`}>
+                          <div className={`group bg-card rounded-2xl overflow-hidden transition-all duration-200 cursor-pointer border-2 ${isSelected ? "border-primary shadow-elevated scale-[1.01]" : "border-transparent shadow-card hover:shadow-elevated"
+                            }`}>
+                            {/* Cover Image */}
+                            <div className="relative h-36 overflow-hidden bg-gradient-to-br from-primary/20 to-primary/5">
+                              {company.coverImageUrl && (
+                                <Image width={600} height={240} src={company.coverImageUrl} alt={company.name}
+                                  className="w-full h-full object-cover transition-transform duration-500 group-hover:scale-105"
+                                  onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                />
+                              )}
+                              <div className="absolute inset-0 bg-gradient-to-t from-black/60 to-transparent" />
+                              {/* Number badge matching map pin */}
+                              <div className="absolute top-3 left-3 w-7 h-7 rounded-full bg-primary text-primary-foreground text-xs font-bold flex items-center justify-center shadow">
+                                {index + 1}
+                              </div>
+                              {company.logoUrl && (
+                                <div className="absolute bottom-3 left-3">
+                                  <Image width={44} height={44} src={company.logoUrl} alt={company.name}
+                                    className="w-11 h-11 rounded-xl object-cover border-2 border-white shadow-lg"
+                                    onError={(e) => { e.currentTarget.style.display = 'none'; }}
+                                  />
+                                </div>
+                              )}
+                              {company.verificationStatus && (
+                                <div className="absolute top-3 right-3">
+                                  <Badge className="bg-white/90 text-primary gap-1 text-xs">
+                                    <Shield className="w-3 h-3" />Verified
+                                  </Badge>
+                                </div>
+                              )}
+                            </div>
+
+                            {/* Content */}
+                            <div className="p-4">
+                              <div className="flex items-start justify-between mb-1">
+                                <h3 className="font-display font-semibold text-base text-foreground group-hover:text-primary transition-colors line-clamp-1">
+                                  {company.name}
+                                </h3>
+                                {company.rating && (
+                                  <div className="flex items-center gap-0.5 bg-primary/10 px-2 py-0.5 rounded-lg ml-2 shrink-0">
+                                    <Star className="w-3.5 h-3.5 fill-primary text-primary" />
+                                    <span className="font-semibold text-xs text-primary">
+                                      {typeof company.rating === 'number' ? company.rating.toFixed(1) : company.rating}
+                                    </span>
+                                  </div>
+                                )}
+                              </div>
+                              <p className="text-xs text-muted-foreground mb-2 line-clamp-1">
+                                {company.description || 'Professional service provider'}
+                              </p>
+                              <div className="flex items-center gap-3 text-xs text-muted-foreground mb-3">
+                                <div className="flex items-center gap-1">
+                                  <MapPin className="w-3 h-3" />
+                                  {company.location || company.city || 'Multiple locations'}
+                                </div>
+                                {company.yearsInBusiness && (
+                                  <div className="flex items-center gap-1">
+                                    <Clock className="w-3 h-3" />
+                                    {company.yearsInBusiness}y exp
+                                  </div>
+                                )}
+                              </div>
+                              {company.Highlights && company.Highlights.length > 0 && (
+                                <div className="flex flex-wrap gap-1 mb-3">
+                                  {company.Highlights.slice(0, 2).map((h: any, i: number) => (
+                                    <Badge key={i} variant="secondary" className="text-xs py-0">
+                                      <CheckCircle2 className="w-2.5 h-2.5 mr-1" />{h.label}
+                                    </Badge>
+                                  ))}
+                                </div>
+                              )}
+                              <div className="flex items-center justify-between pt-3 border-t border-border">
+                                <div>
+                                  {company.priceRange && (
+                                    <>
+                                      <span className="text-base font-bold text-foreground">${company.priceRange.min}</span>
+                                      {company.priceRange.max > company.priceRange.min && (
+                                        <span className="text-muted-foreground text-xs"> – ${company.priceRange.max}</span>
+                                      )}
+                                    </>
+                                  )}
+                                </div>
+                                <Button size="sm" className="gap-1 h-7 text-xs">
+                                  View <ArrowRight className="w-3 h-3" />
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        </Link>
+                      </motion.div>
+                    );
+                  })}
                 </div>
                 {companies.length === 0 && !loading && (
                   <div className="text-center py-16">

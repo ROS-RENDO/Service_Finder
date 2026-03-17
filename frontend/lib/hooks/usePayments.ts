@@ -1,7 +1,7 @@
 // lib/hooks/usePayments.ts
 
-import { useState, useEffect, useCallback } from 'react';
-import { Payment } from '@/types/payment.type';
+import { useState, useEffect, useCallback } from "react";
+import { Payment } from "@/types/payment.type";
 
 interface UsePaymentsOptions {
   autoFetch?: boolean;
@@ -12,7 +12,7 @@ interface UsePaymentsOptions {
 
 interface CompletePaymentData {
   bookingId: string | number;
-  method: 'card' | 'wallet' | 'cash' | 'paypal' | 'bank';
+  method: "card" | "wallet" | "cash" | "paypal" | "bank" | "crypto";
   cardDetails?: {
     number: string;
     expiry: string;
@@ -40,18 +40,18 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     total: 0,
     page: 1,
     limit: 10,
-    pages: 0
+    pages: 0,
   });
 
   // Get API base URL
-  const API_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:5000';
+  const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:5000";
 
   /**
    * Get auth token from localStorage
    */
   const getAuthToken = () => {
-    if (typeof window !== 'undefined') {
-      return localStorage.getItem('token');
+    if (typeof window !== "undefined") {
+      return localStorage.getItem("token");
     }
     return null;
   };
@@ -65,17 +65,17 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     try {
       const token = getAuthToken();
       const params = new URLSearchParams();
-      if (status) params.append('status', status);
-      params.append('page', page.toString());
-      params.append('limit', limit.toString());
+      if (status) params.append("status", status);
+      params.append("page", page.toString());
+      params.append("limit", limit.toString());
 
       const response = await fetch(`${API_URL}/api/payments?${params}`, {
-        method: 'GET',
+        method: "GET",
         headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
         },
-        credentials: 'include'
+        credentials: "include",
       });
 
       if (response.ok) {
@@ -84,11 +84,11 @@ export function usePayments(options: UsePaymentsOptions = {}) {
         setPagination(data.pagination);
       } else {
         const errorData = await response.json();
-        setError(errorData.error || 'Failed to fetch payments');
+        setError(errorData.error || "Failed to fetch payments");
       }
     } catch (err) {
-      setError('An error occurred while fetching payments');
-      console.error('Fetch payments error:', err);
+      setError("An error occurred while fetching payments");
+      console.error("Fetch payments error:", err);
     } finally {
       setLoading(false);
     }
@@ -103,215 +103,251 @@ export function usePayments(options: UsePaymentsOptions = {}) {
   /**
    * Get payment by ID
    */
-  const getPaymentById = useCallback(async (id: string) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = getAuthToken();
-      const response = await fetch(`${API_URL}/api/payments/${id}`, {
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include'
-      });
+  const getPaymentById = useCallback(
+    async (id: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = getAuthToken();
+        const response = await fetch(`${API_URL}/api/payments/${id}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
+          credentials: "include",
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        return { success: true, payment: data.payment };
+        if (response.ok) {
+          const data = await response.json();
+          return { success: true, payment: data.payment };
+        }
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.error || "Payment not found",
+        };
+      } catch (err) {
+        console.error("Get payment error:", err);
+        return { success: false, error: "An error occurred" };
+      } finally {
+        setLoading(false);
       }
-      const errorData = await response.json();
-      return { success: false, error: errorData.error || 'Payment not found' };
-    } catch (err) {
-      console.error('Get payment error:', err);
-      return { success: false, error: 'An error occurred' };
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL]);
+    },
+    [API_URL],
+  );
 
   /**
    * Create payment (legacy method)
    */
-  const createPayment = useCallback(async (paymentData: any) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = getAuthToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(paymentData)
-      });
+  const createPayment = useCallback(
+    async (paymentData: any) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = getAuthToken();
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payments`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(paymentData),
+          },
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        if (autoFetch) {
-          fetchPayments();
+        if (response.ok) {
+          const data = await response.json();
+          if (autoFetch) {
+            fetchPayments();
+          }
+          return { success: true, payment: data.payment };
         }
-        return { success: true, payment: data.payment };
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.error || "Failed to create payment",
+        };
+      } catch (err) {
+        console.error("Create payment error:", err);
+        return { success: false, error: "Failed to create payment" };
+      } finally {
+        setLoading(false);
       }
-      const errorData = await response.json();
-      return { success: false, error: errorData.error || 'Failed to create payment' };
-    } catch (err) {
-      console.error('Create payment error:', err);
-      return { success: false, error: 'Failed to create payment' };
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL, autoFetch, fetchPayments]);
+    },
+    [API_URL, autoFetch, fetchPayments],
+  );
 
   /**
    * Create Stripe Checkout Session
    * @param bookingId - The booking ID to create payment for
    * @returns Response with session ID and checkout URL
    */
-  const createCheckoutSession = useCallback(async (bookingId: string): Promise<PaymentResponse> => {
-    setLoading(true);
-    setError(null);
+  const createCheckoutSession = useCallback(
+    async (bookingId: string): Promise<PaymentResponse> => {
+      setLoading(true);
+      setError(null);
 
-    try {
-      const token = getAuthToken();
+      try {
+        const token = getAuthToken();
 
-      if (!token) {
-        throw new Error('Authentication required. Please log in.');
+        if (!token) {
+          throw new Error("Authentication required. Please log in.");
+        }
+
+        console.log("Creating checkout session for booking:", bookingId);
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payments/checkout-session`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+            body: JSON.stringify({ bookingId }),
+          },
+        );
+
+        const data = await response.json();
+
+        if (!response.ok) {
+          throw new Error(data.error || "Failed to create checkout session");
+        }
+
+        console.log("Checkout session created successfully:", {
+          sessionId: data.sessionId,
+          hasUrl: !!data.url,
+        });
+
+        return {
+          success: true,
+          sessionId: data.sessionId,
+          url: data.url,
+        };
+      } catch (err: any) {
+        console.error("Checkout session error:", err);
+        const errorMessage = err.message || "Failed to create checkout session";
+        setError(errorMessage);
+
+        return {
+          success: false,
+          error: errorMessage,
+        };
+      } finally {
+        setLoading(false);
       }
-
-      console.log('Creating checkout session for booking:', bookingId);
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/checkout-session`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
-        },
-        credentials: 'include',
-        body: JSON.stringify({ bookingId }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.error || 'Failed to create checkout session');
-      }
-
-      console.log('Checkout session created successfully:', {
-        sessionId: data.sessionId,
-        hasUrl: !!data.url
-      });
-
-      return {
-        success: true,
-        sessionId: data.sessionId,
-        url: data.url,
-      };
-    } catch (err: any) {
-      console.error('Checkout session error:', err);
-      const errorMessage = err.message || 'Failed to create checkout session';
-      setError(errorMessage);
-
-      return {
-        success: false,
-        error: errorMessage,
-      };
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL]);
+    },
+    [API_URL],
+  );
 
   /**
    * Complete payment for cash/wallet methods
    * @param paymentData - Payment parameters including booking ID and method
    * @returns Response with payment details
    */
-  const completePayment = useCallback(async (paymentData: {
-    bookingId: string;
-    method: 'card' | 'wallet' | 'cash' | 'paypal' | 'bank';
-  }) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = localStorage.getItem('token');
+  const completePayment = useCallback(
+    async (paymentData: {
+      bookingId: string;
+      method: "card" | "wallet" | "cash" | "paypal" | "bank";
+    }) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = localStorage.getItem("token");
 
-      if (!token) {
+        if (!token) {
+          return {
+            success: false,
+            error: "Authentication required. Please log in.",
+          };
+        }
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payments/complete`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(paymentData),
+          },
+        );
+
+        const data = await response.json();
+
+        if (response.ok) {
+          if (autoFetch) {
+            fetchPayments();
+          }
+          return data;
+        }
+
         return {
           success: false,
-          error: 'Authentication required. Please log in.'
+          error: data.error || "Failed to complete payment",
         };
+      } catch (err) {
+        console.error("Complete payment error:", err);
+        return {
+          success: false,
+          error: "Network error. Please check your connection and try again.",
+        };
+      } finally {
+        setLoading(false);
       }
-
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/complete`, {
-        method: 'POST',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(paymentData)
-      });
-
-      const data = await response.json();
-
-      if (response.ok) {
-        if (autoFetch) {
-          fetchPayments();
-        }
-        return data;
-      }
-
-      return {
-        success: false,
-        error: data.error || 'Failed to complete payment'
-      };
-    } catch (err) {
-      console.error('Complete payment error:', err);
-      return {
-        success: false,
-        error: 'Network error. Please check your connection and try again.'
-      };
-    } finally {
-      setLoading(false);
-    }
-  }, [autoFetch, fetchPayments]);
+    },
+    [autoFetch, fetchPayments],
+  );
 
   /**
    * Update payment status (admin only)
    */
-  const updatePayment = useCallback(async (id: string, updateData: any) => {
-    setLoading(true);
-    setError(null);
-    try {
-      const token = getAuthToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/${id}`, {
-        method: 'PATCH',
-        headers: {
-          'Authorization': `Bearer ${token}`,
-          'Content-Type': 'application/json'
-        },
-        credentials: 'include',
-        body: JSON.stringify(updateData)
-      });
+  const updatePayment = useCallback(
+    async (id: string, updateData: any) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = getAuthToken();
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payments/${id}`,
+          {
+            method: "PATCH",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+            },
+            credentials: "include",
+            body: JSON.stringify(updateData),
+          },
+        );
 
-      if (response.ok) {
-        const data = await response.json();
-        if (autoFetch) {
-          fetchPayments();
+        if (response.ok) {
+          const data = await response.json();
+          if (autoFetch) {
+            fetchPayments();
+          }
+          return { success: true, payment: data.payment };
         }
-        return { success: true, payment: data.payment };
+        const errorData = await response.json();
+        return {
+          success: false,
+          error: errorData.error || "Failed to update payment",
+        };
+      } catch (err) {
+        console.error("Update payment error:", err);
+        return { success: false, error: "Failed to update payment" };
+      } finally {
+        setLoading(false);
       }
-      const errorData = await response.json();
-      return { success: false, error: errorData.error || 'Failed to update payment' };
-    } catch (err) {
-      console.error('Update payment error:', err);
-      return { success: false, error: 'Failed to update payment' };
-    } finally {
-      setLoading(false);
-    }
-  }, [API_URL, autoFetch, fetchPayments]);
+    },
+    [API_URL, autoFetch, fetchPayments],
+  );
 
   /**
    * Create PayPal Order
@@ -321,22 +357,26 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     setError(null);
     try {
       const token = getAuthToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/paypal/order`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payments/paypal/order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ bookingId }),
         },
-        credentials: 'include',
-        body: JSON.stringify({ bookingId }),
-      });
+      );
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to create PayPal order');
+      if (!response.ok)
+        throw new Error(data.error || "Failed to create PayPal order");
 
       return { success: true, url: data.url, orderId: data.orderId };
     } catch (err: any) {
-      console.error('PayPal create order error:', err);
+      console.error("PayPal create order error:", err);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
@@ -346,27 +386,115 @@ export function usePayments(options: UsePaymentsOptions = {}) {
   /**
    * Capture PayPal Order
    */
-  const capturePaypalOrder = useCallback(async (orderID: string, bookingId: string) => {
+  const capturePaypalOrder = useCallback(
+    async (orderID: string, bookingId: string) => {
+      setLoading(true);
+      setError(null);
+      try {
+        const token = getAuthToken();
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_API_URL}/api/payments/paypal/capture`,
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${token}`,
+            },
+            credentials: "include",
+            body: JSON.stringify({ orderID, bookingId }),
+          },
+        );
+
+        const data = await response.json();
+        if (!response.ok)
+          throw new Error(data.error || "Failed to capture PayPal payment");
+
+        return { success: true, payment: data.payment };
+      } catch (err: any) {
+        console.error("PayPal capture error:", err);
+        return { success: false, error: err.message };
+      } finally {
+        setLoading(false);
+      }
+    },
+    [],
+  );
+
+  /**
+   * Create Binance Pay Order
+   */
+  const createBinanceOrder = useCallback(async (bookingId: string) => {
     setLoading(true);
     setError(null);
     try {
       const token = getAuthToken();
-      const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/payments/paypal/capture`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`,
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payments/binance/order`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ bookingId }),
         },
-        credentials: 'include',
-        body: JSON.stringify({ orderID, bookingId }),
-      });
+      );
 
       const data = await response.json();
-      if (!response.ok) throw new Error(data.error || 'Failed to capture PayPal payment');
+      if (!response.ok)
+        throw new Error(data.error || "Failed to create Binance Pay order");
 
-      return { success: true, payment: data.payment };
+      return {
+        success: true,
+        checkoutUrl: data.checkoutUrl,
+        qrCode: data.qrCode,
+        orderId: data.orderId,
+        amount: data.amount,
+        currency: data.currency,
+      };
     } catch (err: any) {
-      console.error('PayPal capture error:', err);
+      console.error("Binance create order error:", err);
+      return { success: false, error: err.message };
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  /**
+   * Create Cryptmus Payment
+   */
+  const createCryptmusPayment = useCallback(async (bookingId: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const token = getAuthToken();
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/payments/cryptmus/init`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({ bookingId }),
+        },
+      );
+
+      const data = await response.json();
+      if (!response.ok)
+        throw new Error(data.error || "Failed to create Cryptmus payment");
+
+      return {
+        success: true,
+        paymentUrl: data.paymentUrl,
+        paymentId: data.paymentId,
+        amount: data.amount,
+        currency: data.currency,
+      };
+    } catch (err: any) {
+      console.error("Cryptmus create payment error:", err);
       return { success: false, error: err.message };
     } finally {
       setLoading(false);
@@ -386,5 +514,7 @@ export function usePayments(options: UsePaymentsOptions = {}) {
     updatePayment,
     createPaypalOrder,
     capturePaypalOrder,
+    createBinanceOrder,
+    createCryptmusPayment,
   };
 }

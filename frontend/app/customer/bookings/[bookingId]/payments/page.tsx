@@ -14,31 +14,35 @@ import {
   Wallet,
   Landmark,
   Plus,
+  Bitcoin,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/lib/hooks/use-toast";
 import { useBookings } from "@/lib/hooks/useBookings";
 import { Booking } from "@/types/booking.types";
 import { usePayments } from "@/lib/hooks/usePayments";
+import { CryptmusPaymentModal } from "@/components/payment/CryptmusPaymentModal";
 
 const localBanks = [
-  { id: "chase", name: "Chase Bank", logo: "🏦" },
-  { id: "bof", name: "Bank of America", logo: "🏦" },
-  { id: "wellsfargo", name: "Wells Fargo", logo: "🏦" },
-  { id: "citi", name: "Citibank", logo: "🏦" },
-  { id: "capone", name: "Capital One", logo: "🏦" },
-  { id: "usbank", name: "US Bank", logo: "🏦" },
+  { id: "aba", name: "ABA Bank", logo: "/ABA.png" },
+  { id: "acleda", name: "Acelda Bank", logo: "/ACLEDA.png" },
+  { id: "canadia", name: "Canadia Bank", logo: "/CANADIA.jpg" },
+  { id: "chipmong", name: "Chipmong Bank", logo: "/CHIPMONG.jpg" },
+  { id: "wing", name: "Wing Bank", logo: "/Wing.png" },
+  { id: "vattanac", name: "Vattanac Bank", logo: "/VATTANAC.png" },
+  { id: "khqr", name: "KHQR", logo: "/KHQR.png" },
 ];
 
 const paymentMethods = [
   { id: "card", name: "Credit / Debit Card", icon: CreditCard },
   { id: "wallet", name: "Digital Wallet", icon: Wallet },
+  { id: "crypto", name: "Cryptocurrency (500+ coins)", icon: Bitcoin },
   { id: "paypal", name: "PayPal", icon: Sparkles },
   { id: "bank", name: "Local Bank Transfer", icon: Landmark },
   { id: "cash", name: "Pay at Service", icon: Lock },
 ];
 
-type PaymentMethod = "card" | "wallet" | "cash" | "paypal" | "bank";
+type PaymentMethod = "card" | "wallet" | "cash" | "paypal" | "bank" | "crypto";
 
 export default function Payment() {
   const { bookingId } = useParams();
@@ -48,11 +52,17 @@ export default function Payment() {
   const [isLoading, setIsLoading] = useState(false);
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>("card");
   const [selectedBank, setSelectedBank] = useState<string | null>(null);
+  const [cryptmusData, setCryptmusData] = useState<{
+    paymentUrl?: string;
+    paymentId?: string;
+  } | null>(null);
+  const [showCryptmusModal, setShowCryptmusModal] = useState(false);
 
   const { getBookingById } = useBookings({ autoFetch: false });
-  const { createCheckoutSession, completePayment, createPaypalOrder } = usePayments({
-    autoFetch: false,
-  });
+  const { createCheckoutSession, completePayment, createPaypalOrder, createCryptmusPayment } =
+    usePayments({
+      autoFetch: false,
+    });
   const [booking, setBooking] = useState<Booking | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -116,6 +126,37 @@ export default function Payment() {
             variant: "destructive",
           });
         }
+      } else if (paymentMethod === "crypto") {
+        // ✅ CRYPTO: Use Cryptmus API
+        try {
+          const result = await createCryptmusPayment(bookingId as string);
+
+          if (result.success) {
+            setCryptmusData({
+              paymentUrl: result.paymentUrl,
+              paymentId: result.paymentId,
+            });
+            setShowCryptmusModal(true);
+
+            toast({
+              title: "Cryptmus Payment Ready",
+              description:
+                "Click to open payment page and complete transaction",
+            });
+          } else {
+            toast({
+              title: "Payment Error",
+              description: result.error || "Failed to create Cryptmus payment",
+              variant: "destructive",
+            });
+          }
+        } catch (err: any) {
+          toast({
+            title: "Error",
+            description: err.message || "Failed to initiate crypto payment",
+            variant: "destructive",
+          });
+        }
       } else {
         if (paymentMethod === "bank" && !selectedBank) {
           toast({
@@ -168,6 +209,16 @@ export default function Payment() {
 
   return (
     <div className="min-h-screen bg-background">
+      {/* 🚀 Cryptmus Payment Modal */}
+      <CryptmusPaymentModal
+        isOpen={showCryptmusModal}
+        onClose={() => setShowCryptmusModal(false)}
+        paymentUrl={cryptmusData?.paymentUrl}
+        paymentId={cryptmusData?.paymentId}
+        amount={booking?.totalPrice ? Number(booking.totalPrice) : undefined}
+        currency="USD"
+      />
+
       {/* Header */}
       <header className="sticky top-0 glass border-b border-border">
         <div className="container mx-auto px-4">
@@ -236,16 +287,18 @@ export default function Payment() {
                         onClick={() =>
                           setPaymentMethod(method.id as PaymentMethod)
                         }
-                        className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${paymentMethod === method.id
-                          ? "border-primary bg-primary/5"
-                          : "border-border hover:border-primary/30"
-                          }`}
+                        className={`w-full flex items-center gap-4 p-4 rounded-xl border-2 transition-all ${
+                          paymentMethod === method.id
+                            ? "border-primary bg-primary/5"
+                            : "border-border hover:border-primary/30"
+                        }`}
                       >
                         <div
-                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${paymentMethod === method.id
-                            ? "bg-primary text-primary-foreground"
-                            : "bg-secondary text-muted-foreground"
-                            }`}
+                          className={`w-12 h-12 rounded-xl flex items-center justify-center ${
+                            paymentMethod === method.id
+                              ? "bg-primary text-primary-foreground"
+                              : "bg-secondary text-muted-foreground"
+                          }`}
                         >
                           <method.icon className="w-6 h-6" />
                         </div>
@@ -321,17 +374,22 @@ export default function Payment() {
                           key={bank.id}
                           type="button"
                           onClick={() => setSelectedBank(bank.id)}
-                          className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all min-h-[100px] ${selectedBank === bank.id
-                            ? "border-primary bg-primary/5"
-                            : "border-border hover:border-primary/30"
-                            }`}
+                          className={`flex flex-col items-center justify-center gap-2 p-4 rounded-xl border-2 transition-all min-h-[100px] ${
+                            selectedBank === bank.id
+                              ? "border-primary bg-primary/5"
+                              : "border-border hover:border-primary/30"
+                          }`}
                         >
                           {bank.name ? (
                             <>
                               {bank.logo && (
-                                <span className="text-2xl mb-1">{bank.logo}</span>
+                                <img
+                                  src={bank.logo}
+                                  alt={bank.name}
+                                  className="h-8 md:h-10 w-auto object-contain rounded border"
+                                />
                               )}
-                              <span className="text-sm font-medium text-foreground text-center">
+                              <span className="text-sm font-medium text-foreground text-center mt-1">
                                 {bank.name}
                               </span>
                             </>
@@ -448,19 +506,19 @@ export default function Payment() {
                         <span className="text-foreground">
                           {booking?.startTime
                             ? new Date(booking.startTime).toLocaleTimeString(
-                              [],
-                              {
-                                hour: "2-digit",
-                                minute: "2-digit",
-                              },
-                            )
+                                [],
+                                {
+                                  hour: "2-digit",
+                                  minute: "2-digit",
+                                },
+                              )
                             : "N/A"}
                           {" - "}
                           {booking?.endTime
                             ? new Date(booking.endTime).toLocaleTimeString([], {
-                              hour: "2-digit",
-                              minute: "2-digit",
-                            })
+                                hour: "2-digit",
+                                minute: "2-digit",
+                              })
                             : "N/A"}
                         </span>
                       </div>
