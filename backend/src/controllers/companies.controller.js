@@ -1777,6 +1777,136 @@ const reactivateStaffMember = async (req, res) => {
 
 
 
+const getAdminStats = async (req, res, next) => {
+  try {
+    const now = new Date();
+    const startOfToday = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+    const startOfThisWeek = new Date(now);
+    startOfThisWeek.setDate(now.getDate() - 7);
+    const startOf30Days = new Date(now);
+    startOf30Days.setDate(now.getDate() - 30);
+
+    const [
+      totalUsers,
+      newUsersThisWeek,
+      totalCompanies,
+      pendingCompanies,
+      totalBookings,
+      activeBookings,
+      totalRevenue,
+      recentUsers,
+      topCategories,
+      bookingsByMonth,
+      usersByMonth,
+    ] = await Promise.all([
+      // Total users
+      prisma.user.count(),
+      // New users this week
+      prisma.user.count({ where: { createdAt: { gte: startOfThisWeek } } }),
+      // Total companies (verified)
+      prisma.company.count({ where: { verificationStatus: 'verified' } }),
+      // Pending companies
+      prisma.company.count({ where: { verificationStatus: 'pending' } }),
+      // Total bookings
+      prisma.booking.count(),
+      // Active bookings (confirmed / in_progress)
+      prisma.booking.count({ where: { status: { in: ['confirmed', 'in_progress'] } } }),
+      // Total revenue from completed payments
+      prisma.payment.aggregate({
+        _sum: { amount: true },
+        where: { status: 'paid' }
+      }),
+      // 5 most recent users
+      prisma.user.findMany({
+        orderBy: { createdAt: 'desc' },
+        take: 5,
+        select: {
+          id: true, fullName: true, email: true,
+          role: true, status: true, createdAt: true
+        }
+      }),
+      // Top categories by booking count
+      prisma.category.findMany({
+        where: { status: 'active' },
+        take: 5,
+        include: {
+          serviceTypes: {
+            include: {
+              services: {
+                include: {
+                  _count: { select: { bookings: true } }
+                }
+              }
+            }
+          }
+        }
+      }),
+      // Bookings per month (last 12 months) — aggregate by month
+      prisma.$queryRaw`
+        SELECT DATE_TRUNC('month', "createdAt") as month, COUNT(*) as count
+        FROM "Booking"
+        WHERE "createdAt" >= NOW() - INTERVAL '12 months'
+        GROUP BY month
+        ORDER BY month ASC
+      `.catch(() => []),
+      // Users per month (last 12 months)
+      prisma.$queryRaw`
+        SELECT DATE_TRUNC('month', "createdAt") as month, COUNT(*) as count
+        FROM "User"
+        WHERE "createdAt" >= NOW() - INTERVAL '12 months'
+        GROUP BY month
+        ORDER BY month ASC
+      `.catch(() => []),
+    ]);
+
+    // Process top categories
+    const topCatsFormatted = topCategories.map(cat => {
+      const bookingCount = cat.serviceTypes.reduce((sum, st) =>
+        sum + st.services.reduce((s2, svc) => s2 + (svc._count?.bookings || 0), 0), 0
+      );
+      return { name: cat.name, slug: cat.slug, bookings: bookingCount };
+    }).sort((a, b) => b.bookings - a.bookings);
+
+    // Month labels
+    const monthNames = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+    const formatMonthData = (rows) => {
+      const map = {};
+      (rows || []).forEach(r => {
+        const d = new Date(r.month);
+        map[`${d.getFullYear()}-${d.getMonth()}`] = Number(r.count);
+      });
+      const result = [];
+      for (let i = 11; i >= 0; i--) {
+        const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+        result.push({
+          month: monthNames[d.getMonth()],
+          count: map[`${d.getFullYear()}-${d.getMonth()}`] || 0
+        });
+      }
+      return result;
+    };
+
+    res.json({
+      success: true,
+      stats: {
+        totalUsers,
+        newUsersThisWeek,
+        totalCompanies,
+        pendingCompanies,
+        totalBookings,
+        activeBookings,
+        totalRevenue: Number(totalRevenue._sum?.amount || 0),
+        recentUsers: recentUsers.map(u => ({ ...u, id: u.id.toString() })),
+        topCategories: topCatsFormatted,
+        bookingsByMonth: formatMonthData(bookingsByMonth),
+        usersByMonth: formatMonthData(usersByMonth),
+      }
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
 module.exports = {
   getAllCompanies,
   getCompanyById,
@@ -1795,5 +1925,6 @@ module.exports = {
   getStaffMemberById,
   updateStaffMember,
   removeStaffMember,
-  reactivateStaffMember
+  reactivateStaffMember,
+  getAdminStats
 };

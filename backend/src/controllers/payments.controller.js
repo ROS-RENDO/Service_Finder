@@ -4,7 +4,8 @@ const paypal = require("@paypal/checkout-server-sdk");
 
 // Configure PayPal Environment
 const clientId = process.env.PAYPAL_CLIENT_ID || "PAYPAL-SANDBOX-CLIENT-ID";
-const clientSecret = process.env.PAYPAL_CLIENT_SECRET || "PAYPAL-SANDBOX-CLIENT-SECRET";
+const clientSecret =
+  process.env.PAYPAL_CLIENT_SECRET || "PAYPAL-SANDBOX-CLIENT-SECRET";
 const environment = new paypal.core.SandboxEnvironment(clientId, clientSecret);
 const paypalClient = new paypal.core.PayPalHttpClient(environment);
 
@@ -258,7 +259,7 @@ const createCheckoutSession = async (req, res) => {
 
     // Calculate service fee in cents
     const serviceFeeInCents = Math.round(
-      Number(booking.service.basePrice) * 100
+      Number(booking.service.basePrice) * 100,
     );
 
     // Calculate platform fee in cents
@@ -574,7 +575,7 @@ const completePayment = async (req, res, next) => {
     if (booking.status !== "pending") {
       return res.status(400).json({
         error: "This booking has already been processed",
-        currentStatus: booking.status
+        currentStatus: booking.status,
       });
     }
 
@@ -712,14 +713,23 @@ const confirmCashReceived = async (req, res, next) => {
     if (!booking) return res.status(404).json({ error: "Booking not found" });
 
     if (req.user.role === "company_admin") {
-      const companyOfUser = await prisma.company.findUnique({ where: { ownerId: req.user.id } });
-      if (!companyOfUser || companyOfUser.id.toString() !== booking.companyId.toString()) {
-        return res.status(403).json({ error: "Access denied – not your company" });
+      const companyOfUser = await prisma.company.findUnique({
+        where: { ownerId: req.user.id },
+      });
+      if (
+        !companyOfUser ||
+        companyOfUser.id.toString() !== booking.companyId.toString()
+      ) {
+        return res
+          .status(403)
+          .json({ error: "Access denied – not your company" });
       }
     }
 
     if (!booking.payment || booking.payment.method !== "cash") {
-      return res.status(400).json({ error: "No pending cash payment found for this booking" });
+      return res
+        .status(400)
+        .json({ error: "No pending cash payment found for this booking" });
     }
 
     if (booking.payment.status === "paid") {
@@ -822,7 +832,7 @@ const createPaypalOrder = async (req, res) => {
     if (booking.status !== "pending") {
       return res.status(400).json({
         error: "This booking has already been processed",
-        currentStatus: booking.status
+        currentStatus: booking.status,
       });
     }
 
@@ -856,7 +866,7 @@ const createPaypalOrder = async (req, res) => {
 
     // Find the approve link
     const approveLink = response.result.links.find(
-      (link) => link.rel === "approve"
+      (link) => link.rel === "approve",
     );
 
     if (!approveLink) {
@@ -940,7 +950,7 @@ const capturePaypalOrder = async (req, res) => {
               status: "paid",
               transactionRef: orderID,
               paidAt: new Date(),
-            }
+            },
           });
         }
 
@@ -982,7 +992,7 @@ const capturePaypalOrder = async (req, res) => {
           id: result.payment.id.toString(),
           bookingId: result.payment.bookingId.toString(),
           status: result.payment.status,
-        }
+        },
       });
     } else {
       res.status(400).json({ error: "Payment was not completed" });
@@ -990,6 +1000,460 @@ const capturePaypalOrder = async (req, res) => {
   } catch (error) {
     console.error("Capture PayPal Order error:", error);
     res.status(500).json({ error: "Failed to capture PayPal order" });
+  }
+};
+
+/**
+ * Create Cryptmus Payment
+ */
+const createCryptmusPayment = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const {
+      createCryptmusPayment: initCryptmusPayment,
+    } = require("../config/cryptmus");
+
+    // Verify booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: BigInt(bookingId) },
+      include: {
+        service: true,
+        company: true,
+        customer: true,
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.customerId !== req.user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (booking.status !== "pending") {
+      return res.status(400).json({
+        error: "This booking has already been processed",
+        currentStatus: booking.status,
+      });
+    }
+
+    // Check if payment already exists and is paid
+    const existingPayment = await prisma.payment.findUnique({
+      where: { bookingId: BigInt(bookingId) },
+    });
+
+    if (existingPayment && existingPayment.status === "paid") {
+      return res.status(400).json({
+        error: "Payment already completed for this booking",
+      });
+    }
+
+    // Create Cryptmus payment
+    const cryptmusPayment = await initCryptmusPayment({
+      bookingId,
+      amount: Number(booking.totalPrice),
+      currency: "USD",
+      serviceName: booking.service.name,
+      customerEmail: booking.customer.email,
+      customerName: booking.customer.fullName,
+      returnUrl: `${process.env.FRONTEND_URL}/customer/bookings/${bookingId}?payment=success`,
+      cancelUrl: `${process.env.FRONTEND_URL}/customer/bookings/${bookingId}?payment=cancelled`,
+    });
+
+    // Create or update payment record
+    if (existingPayment) {
+      await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          transactionRef: cryptmusPayment.paymentId,
+          status: "pending",
+          method: "crypto",
+          metadata: JSON.stringify({
+            provider: "cryptmus",
+            paymentId: cryptmusPayment.paymentId,
+            initiatedAt: new Date().toISOString(),
+          }),
+        },
+      });
+    } else {
+      await prisma.payment.create({
+        data: {
+          bookingId: BigInt(bookingId),
+          userId: req.user.id,
+          method: "crypto",
+          amount: booking.totalPrice,
+          status: "pending",
+          transactionRef: cryptmusPayment.paymentId,
+          metadata: JSON.stringify({
+            provider: "cryptmus",
+            paymentId: cryptmusPayment.paymentId,
+            initiatedAt: new Date().toISOString(),
+          }),
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      paymentId: cryptmusPayment.paymentId,
+      paymentUrl: cryptmusPayment.paymentUrl,
+      amount: Number(booking.totalPrice),
+      currency: "USD",
+    });
+  } catch (error) {
+    console.error("Cryptmus Payment creation error:", error);
+    res.status(500).json({
+      error: error.message || "Failed to create Cryptmus payment",
+    });
+  }
+};
+
+/**
+ * Handle Cryptmus Webhook
+ */
+const handleCryptmusWebhook = async (req, res) => {
+  try {
+    const { verifyCryptmusWebhook } = require("../config/cryptmus");
+    const signature = req.headers["x-cryptmus-signature"];
+    const payload = req.body;
+
+    // Verify webhook signature
+    const isValid = verifyCryptmusWebhook(payload, signature);
+
+    if (!isValid) {
+      console.error("Invalid Cryptmus webhook signature");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    const { uuid, status, order_id } = payload;
+
+    if (status === "paid" || status === "success") {
+      // Find payment by transaction ref
+      const payment = await prisma.payment.findFirst({
+        where: {
+          transactionRef: uuid,
+        },
+        include: {
+          booking: true,
+          user: true,
+        },
+      });
+
+      if (!payment) {
+        console.warn("Payment not found for Cryptmus webhook:", uuid);
+        return res.status(404).json({ error: "Payment not found" });
+      }
+
+      // Update payment status
+      await prisma.payment.update({
+        where: { id: payment.id },
+        data: {
+          status: "paid",
+          metadata: JSON.stringify({
+            ...JSON.parse(payment.metadata || "{}"),
+            confirmedAt: new Date().toISOString(),
+            cryptmusStatus: status,
+          }),
+        },
+      });
+
+      // Update booking status
+      await prisma.booking.update({
+        where: { id: payment.bookingId },
+        data: {
+          status: "confirmed",
+          paymentStatus: "paid",
+        },
+      });
+
+      console.log("Cryptmus payment confirmed:", uuid);
+    }
+
+    res.json({ success: true });
+  } catch (error) {
+    console.error("Cryptmus webhook error:", error);
+    res.status(500).json({ error: "Webhook processing failed" });
+  }
+};
+
+/**
+ * Check Cryptmus payment status
+ */
+const getCryptmusPaymentStatus = async (req, res) => {
+  try {
+    const { paymentId } = req.params;
+    const { getPaymentStatus } = require("../config/cryptmus");
+
+    const status = await getPaymentStatus(paymentId);
+
+    res.json({
+      success: true,
+      status: status.status,
+      amount: status.amount,
+      currency: status.currency,
+    });
+  } catch (error) {
+    console.error("Cryptmus status check error:", error);
+    res.status(500).json({ error: "Failed to check payment status" });
+  }
+};
+
+/**
+ * Create Binance Pay Order
+ */
+const createBinanceOrder = async (req, res) => {
+  try {
+    const { bookingId } = req.body;
+    const { createBinancePayOrder } = require("../config/binance");
+
+    // Verify booking
+    const booking = await prisma.booking.findUnique({
+      where: { id: BigInt(bookingId) },
+      include: {
+        service: true,
+        company: true,
+        customer: true,
+      },
+    });
+
+    if (!booking) {
+      return res.status(404).json({ error: "Booking not found" });
+    }
+
+    if (booking.customerId !== req.user.id) {
+      return res.status(403).json({ error: "Access denied" });
+    }
+
+    if (booking.status !== "pending") {
+      return res.status(400).json({
+        error: "This booking has already been processed",
+        currentStatus: booking.status,
+      });
+    }
+
+    // Check if payment already exists and is paid
+    const existingPayment = await prisma.payment.findUnique({
+      where: { bookingId: BigInt(bookingId) },
+    });
+
+    if (existingPayment && existingPayment.status === "paid") {
+      return res.status(400).json({
+        error: "Payment already completed for this booking",
+      });
+    }
+
+    // Create Binance Pay order
+    const binanceOrderData = await createBinancePayOrder({
+      bookingId,
+      amount: Number(booking.totalPrice),
+      serviceName: booking.service.name,
+      customerEmail: booking.customer.email,
+      customerName: booking.customer.fullName,
+      returnUrl: `${process.env.FRONTEND_URL}/customer/bookings/${bookingId}/payments/success?method=binance&booking_id=${bookingId}`,
+      cancelUrl: `${process.env.FRONTEND_URL}/payment/cancelled?booking_id=${bookingId}&reason=cancelled`,
+    });
+
+    // Create or update payment record
+    if (existingPayment) {
+      await prisma.payment.update({
+        where: { id: existingPayment.id },
+        data: {
+          transactionRef: binanceOrderData.orderId,
+          status: "pending",
+          method: "crypto",
+          metadata: JSON.stringify({
+            prepayId: binanceOrderData.orderId,
+            qrCode: binanceOrderData.qrCodeUrl,
+          }),
+        },
+      });
+    } else {
+      await prisma.payment.create({
+        data: {
+          bookingId: BigInt(bookingId),
+          userId: req.user.id,
+          method: "crypto",
+          amount: booking.totalPrice,
+          status: "pending",
+          transactionRef: binanceOrderData.orderId,
+          metadata: JSON.stringify({
+            prepayId: binanceOrderData.orderId,
+            qrCode: binanceOrderData.qrCodeUrl,
+          }),
+        },
+      });
+    }
+
+    res.json({
+      success: true,
+      orderId: binanceOrderData.orderId,
+      checkoutUrl: binanceOrderData.checkoutUrl,
+      qrCode: binanceOrderData.qrCodeUrl,
+      amount: Number(booking.totalPrice),
+      currency: "USD",
+    });
+  } catch (error) {
+    console.error("Binance Pay Order creation error:", error);
+    res.status(500).json({
+      error: error.message || "Failed to create Binance Pay order",
+    });
+  }
+};
+
+/**
+ * Handle Binance Pay Webhook
+ */
+const handleBinanceWebhook = async (req, res) => {
+  try {
+    const { verifyBinanceWebhook } = require("../config/binance");
+    const timestamp = req.headers["binancepay-timestamp"];
+    const nonce = req.headers["binancepay-nonce"];
+    const signature = req.headers["binancepay-signature"];
+    const payload = JSON.stringify(req.body);
+
+    // Verify webhook signature
+    const isValid = verifyBinanceWebhook(payload, timestamp, nonce, signature);
+
+    if (!isValid) {
+      console.error("Invalid Binance webhook signature");
+      return res.status(401).json({ error: "Invalid signature" });
+    }
+
+    const { data } = req.body;
+
+    if (data.status === "PAID" || data.status === "SUCCESS") {
+      // Use transaction to ensure both payment and booking are updated together
+      const result = await prisma.$transaction(async (tx) => {
+        // Find payment by transaction reference
+        const payment = await tx.payment.findFirst({
+          where: {
+            transactionRef: data.prepayId,
+          },
+          include: {
+            booking: true,
+          },
+        });
+
+        if (!payment) {
+          throw new Error(`Payment not found for prepayId: ${data.prepayId}`);
+        }
+
+        // Update payment status to paid
+        const updatedPayment = await tx.payment.update({
+          where: { id: payment.id },
+          data: {
+            status: "paid",
+            paidAt: new Date(),
+            metadata: JSON.stringify({
+              ...JSON.parse(payment.metadata || "{}"),
+              webhookData: data,
+              paidWith: data.cryptoCurrency || "CRYPTO",
+            }),
+          },
+        });
+
+        // Update booking status to confirmed
+        const updatedBooking = await tx.booking.update({
+          where: { id: payment.bookingId },
+          data: {
+            status: "confirmed",
+          },
+        });
+
+        // Create status log
+        await tx.bookingStatusLog.create({
+          data: {
+            bookingId: payment.bookingId,
+            oldStatus: "pending",
+            newStatus: "confirmed",
+            changedBy: payment.userId,
+          },
+        });
+
+        // Create notification
+        await tx.notification.create({
+          data: {
+            userId: payment.userId,
+            title: "💰 Crypto Payment Successful!",
+            message: `Your crypto payment of $${payment.amount} for booking #${payment.bookingId} has been confirmed. Your booking is now confirmed!`,
+            isRead: false,
+          },
+        });
+
+        return { payment: updatedPayment, booking: updatedBooking };
+      });
+
+      // Return success response
+      return res.json({
+        success: true,
+        message: "Payment confirmed successfully",
+        data: {
+          bookingId: result.booking.id.toString(),
+          paymentId: result.payment.id.toString(),
+          status: result.booking.status,
+        },
+      });
+    } else if (data.status === "CANCELED" || data.status === "EXPIRED") {
+      // Handle payment cancellation/expiration
+      const payment = await prisma.payment.findFirst({
+        where: { transactionRef: data.prepayId },
+        include: { booking: true },
+      });
+
+      if (payment) {
+        await prisma.$transaction(async (tx) => {
+          await tx.payment.update({
+            where: { id: payment.id },
+            data: { status: "failed" },
+          });
+
+          await tx.booking.update({
+            where: { id: payment.bookingId },
+            data: { status: "cancelled" },
+          });
+        });
+      }
+
+      return res.json({
+        success: true,
+        message: "Payment cancelled/expired",
+      });
+    }
+
+    res.json({ success: true, message: "Webhook processed" });
+  } catch (error) {
+    console.error("Binance webhook error:", error);
+    res.status(500).json({
+      error: error.message || "Webhook processing failed",
+    });
+  }
+};
+
+/**
+ * Get Binance Pay Order Status
+ */
+const getBinanceOrderStatus = async (req, res) => {
+  try {
+    const { getBinancePayOrderStatus } = require("../config/binance");
+    const { prepayId } = req.params;
+
+    if (!prepayId) {
+      return res.status(400).json({ error: "prepayId is required" });
+    }
+
+    const orderStatus = await getBinancePayOrderStatus(prepayId);
+
+    res.json({
+      success: true,
+      status: orderStatus.status,
+      data: orderStatus,
+    });
+  } catch (error) {
+    console.error("Get order status error:", error);
+    res.status(500).json({
+      error: error.message || "Failed to get order status",
+    });
   }
 };
 
@@ -1004,4 +1468,10 @@ module.exports = {
   confirmCashReceived,
   createPaypalOrder,
   capturePaypalOrder,
+  createCryptmusPayment,
+  handleCryptmusWebhook,
+  getCryptmusPaymentStatus,
+  createBinanceOrder,
+  handleBinanceWebhook,
+  getBinanceOrderStatus,
 };

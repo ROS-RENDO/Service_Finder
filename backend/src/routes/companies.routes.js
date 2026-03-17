@@ -21,7 +21,8 @@ const {
   getStaffMemberById,
   updateStaffMember,
   removeStaffMember,
-  reactivateStaffMember
+  reactivateStaffMember,
+  getAdminStats
 } = require('../controllers/companies.controller');
 const { authenticate, authorize } = require('../middleware/auth');
 
@@ -63,6 +64,9 @@ router.post(
     res.json({ success: true, url });
   }
 );
+
+// ─── Admin routes ─────────────────────────────────────────────────────────────
+router.get('/admin/stats', authenticate, authorize('admin'), getAdminStats);
 
 // ─── Public routes ────────────────────────────────────────────────────────────
 router.get('/', getAllCompanies);
