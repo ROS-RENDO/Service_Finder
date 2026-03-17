@@ -1,5 +1,10 @@
 const { PrismaClient } = require("@prisma/client");
 
+// Debug: Show what DATABASE_URL is being used
+const dbUrl = process.env.DATABASE_URL;
+console.log("📡 DATABASE_URL:", dbUrl ? `${dbUrl.slice(0, 20)}...` : "NOT SET");
+console.log("🌍 NODE_ENV:", process.env.NODE_ENV);
+
 const prisma = new PrismaClient({
   log:
     process.env.NODE_ENV === "development"
@@ -22,6 +27,9 @@ const connectWithRetry = async () => {
       setTimeout(() => connectWithRetry(), 5000); // Retry after 5 seconds
     } else {
       console.error("❌ Database connection failed after all retries:", err);
+      console.error(
+        "💡 Make sure DATABASE_URL is set in your environment variables",
+      );
       process.exit(1);
     }
   }

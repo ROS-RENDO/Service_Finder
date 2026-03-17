@@ -17,7 +17,7 @@ const reviewRoutes = require("./routes/reviews.routes");
 const conversationRoutes = require("./routes/conversations.routes");
 const categoryRoutes = require("./routes/category.routes");
 const serviceTypeRoutes = require("./routes/serviceType.routes");
-const staffRoutes = require("./routes/staff.routes")
+const staffRoutes = require("./routes/staff.routes");
 const aiRoutes = require("./routes/ai.routes");
 
 const app = express();
@@ -33,7 +33,12 @@ BigInt.prototype.toJSON = function () {
 };
 
 // Security middleware
-app.use(helmet());
+app.use(
+  helmet({
+    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
+    crossOriginEmbedderPolicy: true,
+  }),
+);
 app.use(cookieParser());
 app.use(cors(corsOptions));
 
@@ -41,7 +46,7 @@ app.use(cors(corsOptions));
 app.post(
   "/api/payments/webhook",
   express.raw({ type: "application/json" }),
-  handleStripeWebhook
+  handleStripeWebhook,
 );
 
 // Body parsing middleware
@@ -49,8 +54,8 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
 // Serve uploaded files as static assets
-const path = require('path');
-app.use('/uploads', express.static(path.join(__dirname, '../uploads')));
+const path = require("path");
+app.use("/uploads", express.static(path.join(__dirname, "../uploads")));
 
 // Health check endpoint
 app.get("/health", (req, res) => {
@@ -66,8 +71,8 @@ app.use("/api/bookings", bookingRoutes);
 app.use("/api/payments", paymentRoutes);
 app.use("/api/reviews", reviewRoutes);
 app.use("/api/conversations", conversationRoutes);
-app.use('/api/staff', staffRoutes);
-app.use('/api/analyze-wall', aiRoutes);
+app.use("/api/staff", staffRoutes);
+app.use("/api/analyze-wall", aiRoutes);
 
 app.use("/api/categories", categoryRoutes);
 app.use("/api/service-types", serviceTypeRoutes);
