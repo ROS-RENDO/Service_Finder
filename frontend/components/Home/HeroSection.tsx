@@ -45,7 +45,7 @@ export function HeroSection() {
             </div>
 
             <h1 className="font-display text-4xl md:text-5xl lg:text-6xl font-bold text-foreground leading-tight mb-6">
-              Find the{" "} auto deployment
+              Find the{" "}
               <span className="text-gradient">Perfect Cleaning</span>
               {" "}Service Near You
             </h1>
