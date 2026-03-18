@@ -343,6 +343,7 @@ function RegisterInner() {
             <div className="flex justify-center flex-col items-center gap-2">
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
+                use_fedcm_for_prompt={false}
                 onError={() => {
                   setError("Google sign in was unsuccessful")
                   toast({
@@ -351,7 +352,6 @@ function RegisterInner() {
                     description: "Please try again later."
                   })
                 }}
-                useOneTap
               />
             </div>
 
