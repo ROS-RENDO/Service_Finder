@@ -8,13 +8,16 @@ const { OAuth2Client } = require("google-auth-library");
 
 const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 
-const getCookieOptions = () => ({
-  httpOnly: true, // ✅ Cannot be accessed by JavaScript (XSS protection)
-  secure: process.env.NODE_ENV === "production", // ✅ HTTPS only in production
-  sameSite: "lax", // ✅ CSRF protection
-  maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days in milliseconds
-  path: "/", // Available on all routes
-});
+const getCookieOptions = () => {
+  const isProd = process.env.NODE_ENV === "production";
+  return {
+    httpOnly: true, // Cannot be accessed by JavaScript (XSS protection)
+    secure: isProd, // HTTPS only in production (required for sameSite: 'none')
+    sameSite: isProd ? "none" : "lax", // 'none' allows cross-domain cookies (Vercel -> Railway)
+    maxAge: 7 * 24 * 60 * 60 * 1000, // 7 days
+    path: "/", // Available on all routes
+  };
+};
 
 const register = async (req, res, next) => {
   try {
@@ -70,7 +73,11 @@ const register = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    res.clearCookie("token", { path: "/" });
+    res.clearCookie("token", { 
+      path: "/",
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
+      secure: process.env.NODE_ENV === "production"
+    });
 
     console.log("✅ User logged out, cookie cleared");
 
