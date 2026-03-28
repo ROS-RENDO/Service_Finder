@@ -216,6 +216,7 @@ function LoginInner() {
               <GoogleLogin
                 onSuccess={handleGoogleSuccess}
                 use_fedcm_for_prompt={false}
+                ux_mode="popup"
                 onError={() => {
                   setError("Google sign in was unsuccessful")
                   toast({
