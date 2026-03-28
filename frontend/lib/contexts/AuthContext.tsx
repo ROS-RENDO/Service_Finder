@@ -158,19 +158,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   }
 
   const logout = async () => {
+    // Clear local state immediately so UI responds instantly
+    clearToken()
+    setUser(null)
+
     try {
+      // Tell the backend to clear its httpOnly cookie
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
         headers: { ...getAuthHeaders() },
       })
     } catch (err) {
-      // Ignore network errors
-    } finally {
-      clearToken()
-      setUser(null)
-      router.push('/')
+      // Ignore network errors — local token already cleared above
     }
+
+    // Hard redirect (not router.push) to fully reset React state
+    // This prevents the auth context from re-checking and redirecting back
+    window.location.href = '/auth/login'
   }
 
   return (
