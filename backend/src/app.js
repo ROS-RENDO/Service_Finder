@@ -22,8 +22,35 @@ const aiRoutes = require("./routes/ai.routes");
 
 const app = express();
 
+const allowedOrigins = [
+  "http://localhost:3000",
+  "http://localhost:5173",
+  "https://servicefinder-production.up.railway.app"
+];
+
+if (process.env.ALLOWED_ORIGINS) {
+  process.env.ALLOWED_ORIGINS.split(",").forEach((origin) => {
+    const trimmedOrigin = origin.trim();
+    if (trimmedOrigin && !allowedOrigins.includes(trimmedOrigin)) {
+      allowedOrigins.push(trimmedOrigin);
+    }
+  });
+}
+
 const corsOptions = {
-  origin: "http://localhost:3000", // allow only your frontend
+  origin: function (origin, callback) {
+    if (
+      !origin || 
+      allowedOrigins.includes(origin) || 
+      origin.endsWith(".vercel.app") || 
+      origin.endsWith(".railway.app")
+    ) {
+      callback(null, true);
+    } else {
+      console.warn("Blocked by CORS:", origin);
+      callback(null, false);
+    }
+  },
   credentials: true, // allow cookies
 };
 
@@ -35,8 +62,9 @@ BigInt.prototype.toJSON = function () {
 // Security middleware
 app.use(
   helmet({
-    crossOriginOpenerPolicy: { policy: "same-origin-allow-popups" },
-    crossOriginEmbedderPolicy: true,
+    crossOriginOpenerPolicy: false,
+    crossOriginEmbedderPolicy: false,
+    crossOriginResourcePolicy: { policy: "cross-origin" },
   }),
 );
 app.use(cookieParser());
