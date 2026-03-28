@@ -4,6 +4,29 @@ import { createContext, useContext, useEffect, useState, ReactNode } from 'react
 import { useRouter } from 'next/navigation'
 import { GoogleOAuthProvider } from '@react-oauth/google'
 
+// Helper: store token in localStorage AND cookie for middleware
+const saveToken = (token: string) => {
+  localStorage.setItem('token', token)
+  // SameSite=None;Secure needed for cross-domain (Vercel frontend -> Railway backend)
+  const isSecure = window.location.protocol === 'https:'
+  const sameSite = isSecure ? 'None' : 'Lax'
+  const secure = isSecure ? '; Secure' : ''
+  document.cookie = `token=${token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=${sameSite}${secure}`
+}
+
+const clearToken = () => {
+  localStorage.removeItem('token')
+  document.cookie = 'token=; path=/; max-age=0; SameSite=None; Secure'
+  document.cookie = 'token=; path=/; max-age=0'
+}
+
+// Helper: get auth headers (Bearer token fallback if cookie is blocked)
+const getAuthHeaders = (): Record<string, string> => {
+  const token = localStorage.getItem('token')
+  if (token) return { 'Authorization': `Bearer ${token}` }
+  return {}
+}
+
 
 type AuthResult =
   | { success: true; user: User }
@@ -48,12 +71,14 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try {
       const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
         credentials: 'include',
+        headers: { 'Content-Type': 'application/json', ...getAuthHeaders() },
       })
 
       if (response.ok) {
         const data = await response.json()
         setUser(data.user)
       } else {
+        clearToken()
         setUser(null)
       }
     } catch (err) {
@@ -74,15 +99,9 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json()
-        
-        // ✅ Set cookie so middleware can read it
-        if (data.token) {
-          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
-        }
-        
+        if (data.token) saveToken(data.token)
         setUser(data.user)
-        
-        return { success: true , user: data.user}
+        return { success: true, user: data.user }
       } else {
         const error = await response.json()
         return { success: false, error: error.error || 'Login failed' }
@@ -103,13 +122,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json()
-        
-        if (data.token) {
-          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
-        }
-        
+        if (data.token) saveToken(data.token)
         setUser(data.user)
-        
         return { success: true, user: data.user }
       } else {
         const error = await response.json()
@@ -131,13 +145,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
       if (response.ok) {
         const data = await response.json()
-        
-        if (data.token) {
-          document.cookie = `token=${data.token}; path=/; max-age=${7 * 24 * 60 * 60}; SameSite=Lax`
-        }
-        
+        if (data.token) saveToken(data.token)
         setUser(data.user)
-        
         return { success: true, user: data.user }
       } else {
         const error = await response.json()
@@ -153,11 +162,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/logout`, {
         method: 'POST',
         credentials: 'include',
+        headers: { ...getAuthHeaders() },
       })
     } catch (err) {
       // Ignore network errors
     } finally {
-      document.cookie = 'token=; path=/; max-age=0'
+      clearToken()
       setUser(null)
       router.push('/')
     }
