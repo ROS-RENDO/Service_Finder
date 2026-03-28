@@ -1,5 +1,5 @@
 const prisma = require("../config/database");
-const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY);
+const stripe = require("stripe")(process.env.STRIPE_SECRET_KEY || "sk_test_placeholder_key_to_prevent_crash");
 const paypal = require("@paypal/checkout-server-sdk");
 
 // Configure PayPal Environment
