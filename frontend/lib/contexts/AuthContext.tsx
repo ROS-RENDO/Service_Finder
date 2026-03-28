@@ -15,6 +15,7 @@ interface User {
   fullName: string
   email: string
   phone: string
+  avatar?: string
   role: 'customer' | 'company_admin' | 'staff' | 'admin'
   status: string
 }

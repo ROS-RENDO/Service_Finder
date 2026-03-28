@@ -176,7 +176,7 @@ function PaymentSuccessInner() {
         >
           <div className="grid grid-cols-2 gap-3">
             <Button variant="outline" className="h-12 gap-2" asChild>
-              <Link href={`/booking/${bookingId}`}>
+              <Link href={`/customer/bookings/${bookingId}`}>
                 <FileText className="w-4 h-4" />
                 View Booking
               </Link>

@@ -106,9 +106,15 @@ function LoginInner() {
   }
 
   return (
-    <div className="min-h-screen flex">
+    <div className="min-h-screen flex bg-background">
+      {/* Background orbs */}
+      <div className="pointer-events-none fixed inset-0 overflow-hidden">
+        <div className="absolute -top-40 -left-40 w-96 h-96 bg-primary/10 rounded-full blur-3xl" />
+        <div className="absolute top-1/2 -right-32 w-80 h-80 bg-violet-500/10 rounded-full blur-3xl" />
+      </div>
+
       {/* Left Panel - Form */}
-      <div className="flex-1 flex items-center justify-center p-8">
+      <div className="flex-1 flex items-center justify-center p-8 relative">
         <motion.div
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}

@@ -9,7 +9,7 @@ export default function CustomerLayout({
 }) {
   return (
     <ProtectedRoute allowedRoles={["customer"]}>
-      <div className="min-h-screen bg-gray-50">
+      <div className="min-h-screen bg-background">
         {/* Header */}
         <CustomerHeader />
 
@@ -18,7 +18,7 @@ export default function CustomerLayout({
           <CustomerSidebar />
 
           {/* Main Content Area */}
-          <main className="flex-1 p-8">
+          <main className="flex-1 min-w-0 p-6 lg:p-8">
             <div className="max-w-7xl mx-auto">{children}</div>
           </main>
         </div>
