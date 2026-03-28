@@ -2,7 +2,6 @@
 
 import Link from 'next/link'
 import { Bell, LogOut, MessageCircle, Zap } from 'lucide-react'
-import { useRouter } from 'next/navigation'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -14,7 +13,6 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
-import apiClient from '@/lib/api/client'
 import { useAuthContext } from '@/lib/contexts/AuthContext'
 import { useConversations } from '@/lib/hooks/useChat'
 import { cn } from '@/lib/utils'
@@ -36,19 +34,12 @@ export default function SharedHeader({
   profileHref,
   messagesHref,
 }: SharedHeaderProps) {
-  const router = useRouter()
-  const { user, checkAuth } = useAuthContext()
+  const { user, logout } = useAuthContext()
   const { conversations } = useConversations()
   const unreadCount = conversations.length
 
-  const handleLogout = async () => {
-    try {
-      await apiClient.post('/api/auth/logout')
-      await checkAuth()
-      router.push('/')
-    } catch (error) {
-      console.error('Logout failed:', error)
-    }
+  const handleLogout = () => {
+    logout()
   }
 
   const initials = user?.fullName
