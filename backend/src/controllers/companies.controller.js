@@ -1,5 +1,7 @@
 const prisma = require('../config/database');
 const bcrypt = require('bcrypt');
+const transporter = require('../config/email');
+const { getStaffWelcomeEmail } = require('../utils/emailTemplates');
 
 const getAllCompanies = async (req, res, next) => {
   try {
@@ -1416,8 +1418,23 @@ const addStaffMember = async (req, res) => {
         },
       });
 
-      // TODO: Send welcome email with temporary password
-      console.log(`New user created with temp password: ${tempPassword}`);
+      // Send welcome email with temporary password
+      try {
+        const loginUrl = `${process.env.FRONTEND_URL || 'https://service-finder-five.vercel.app'}/auth/login`;
+        const emailContent = getStaffWelcomeEmail(fullName, company.name, tempPassword, loginUrl);
+        
+        await transporter.sendMail({
+          from: `"Service Finder" <${process.env.SMTP_USER}>`,
+          to: email,
+          subject: emailContent.subject,
+          html: emailContent.html,
+          text: emailContent.text,
+        });
+        console.log(`✅ Welcome email sent to new staff: ${email} (temp pass: ${tempPassword})`);
+      } catch (emailError) {
+        console.error('❌ Failed to send staff welcome email:', emailError);
+        // Continue execution even if email fails, as user is already created
+      }
     }
 
     // Create CompanyStaff record

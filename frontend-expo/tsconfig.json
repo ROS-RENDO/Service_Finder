@@ -1,0 +1,37 @@
+{
+  "extends": "expo/tsconfig.base",
+  "compilerOptions": {
+    "strict": true,
+    "paths": {
+      "@/*": [
+        "./*"
+      ]
+    }
+  },
+  "include": [
+    "**/*.ts",
+    "**/*.tsx",
+    ".expo/types/**/*.ts",
+    "expo-env.d.ts"
+  ],
+  "exclude": [
+    "node_modules",
+    "lib/hooks/useAuth.ts",
+    "lib/hooks/use-toast.ts",
+    "lib/hooks/useBookings.ts",
+    "lib/hooks/useCategories.ts",
+    "lib/hooks/useChat.ts",
+    "lib/hooks/useCompanies.ts",
+    "lib/hooks/useLocalStorage.ts",
+    "lib/hooks/usePayments.ts",
+    "lib/hooks/useReviews.ts",
+    "lib/hooks/useServiceTypes.ts",
+    "lib/hooks/useServices.ts",
+    "lib/hooks/useStaff.ts",
+    "lib/hooks/useUser.ts",
+    "lib/contexts/AuthContext.tsx",
+    "lib/visuals/serviceTypeVisuals.ts",
+    "lib/visuals/categoryVisuals.ts",
+    "lib/schemas"
+  ]
+}
