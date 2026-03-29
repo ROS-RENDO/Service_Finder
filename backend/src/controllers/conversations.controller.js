@@ -1,4 +1,5 @@
 const prisma = require('../config/database');
+const { getIo } = require('../config/socket');
 
 // List conversations for the authenticated user
 const getMyConversations = async (req, res, next) => {
@@ -210,6 +211,23 @@ const sendMessage = async (req, res, next) => {
       where: { id: convoId },
       data: { updatedAt: new Date() },
     });
+
+    // Broadcast to WebSocket room
+    try {
+      const io = getIo();
+      if (io) {
+        io.to(`conversation_${convoId.toString()}`).emit('receive_message', {
+          id: message.id.toString(),
+          senderId: message.senderId.toString(),
+          senderName: message.sender.fullName,
+          text: message.content,
+          timestamp: message.createdAt,
+          conversationId: convoId.toString()
+        });
+      }
+    } catch (wsError) {
+      console.error("WebSocket broadcast failed:", wsError);
+    }
 
     res.status(201).json({
       message: {

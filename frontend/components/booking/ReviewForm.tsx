@@ -11,6 +11,8 @@ interface ReviewFormProps {
   serviceName: string;
   companyName: string;
   staffName?: string;
+  bookingId: string;
+  staffId?: string;
   onSubmit?: (review: {
     rating: number;
     comment: string;
@@ -23,6 +25,8 @@ export default function ReviewForm({
   serviceName,
   companyName,
   staffName,
+  bookingId,
+  staffId,
   onSubmit,
 }: ReviewFormProps) {
   const [rating, setRating] = useState(0);
@@ -66,19 +70,54 @@ export default function ReviewForm({
     }
 
     setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1000));
-    setIsSubmitting(false);
-    setIsSubmitted(true);
 
-    toast({
-      title: "Review Submitted!",
-      description: "Thank you for your feedback.",
-    });
-    onSubmit?.({
-      rating,
-      comment,
-      ...(includeStaffReview ? { staffRating, staffComment } : {}),
-    });
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(
+        `${process.env.NEXT_PUBLIC_API_URL}/api/reviews`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}`,
+          },
+          credentials: "include",
+          body: JSON.stringify({
+            bookingId,
+            companyRating: rating,
+            companyComment: comment,
+            ...(includeStaffReview && staffId
+              ? { staffRating, staffComment, staffId }
+              : {}),
+          }),
+        },
+      );
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to submit review");
+      }
+
+      setIsSubmitted(true);
+      toast({
+        title: "Review Submitted!",
+        description: "Thank you for your feedback.",
+      });
+      onSubmit?.({
+        rating,
+        comment,
+        ...(includeStaffReview ? { staffRating, staffComment } : {}),
+      });
+    } catch (err: any) {
+      toast({
+        title: "Review Failed",
+        description: err.message || "Could not submit review. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handleQuickFeedback = (feedback: string) => {

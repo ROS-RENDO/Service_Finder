@@ -1,5 +1,6 @@
 import { useEffect, useState, useCallback } from "react";
 import { useAuthContext } from "@/lib/contexts/AuthContext";
+import { useSocket } from "@/lib/hooks/useSocket";
 
 export interface ChatConversation {
   id: string;
@@ -38,6 +39,7 @@ interface UseMessagesResult {
     recipientId?: string;
   }) => Promise<{ success: boolean; conversationId?: string; error?: string }>;
   refetch: (conversationId: string) => Promise<void>;
+  addMessage: (msg: ChatMessage) => void;
 }
 
 export function useConversations(): UseConversationsResult {
@@ -77,6 +79,8 @@ export function useMessages(conversationId?: string): UseMessagesResult {
   const [messages, setMessages] = useState<ChatMessage[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  
+  const { socket, isConnected } = useSocket();
 
   const fetchMessages = useCallback(async (id: string) => {
     setLoading(true);
@@ -151,12 +155,49 @@ export function useMessages(conversationId?: string): UseMessagesResult {
     [],
   );
 
+  const addMessage = useCallback((msg: ChatMessage) => {
+    setMessages((prev) => {
+      // Prevent duplicates
+      if (prev.some(m => m.id === msg.id)) return prev;
+      return [...prev, msg];
+    });
+  }, []);
+
+  // WebSockets Live Tracking Integration
+  useEffect(() => {
+    if (isConnected && socket && conversationId) {
+      socket.emit("join_conversation", conversationId);
+
+      const handleReceiveMessage = (data: any) => {
+        // Only add if it belongs to this exact conversation
+        if (data.conversationId === conversationId) {
+          addMessage({
+            id: data.id,
+            senderId: data.senderId,
+            senderName: data.senderName,
+            text: data.text,
+            timestamp: data.timestamp
+          });
+        }
+      };
+
+      socket.on("receive_message", handleReceiveMessage);
+
+      return () => {
+        socket.off("receive_message", handleReceiveMessage);
+        // Leave room
+        socket.emit("leave_conversation", conversationId); // ensure we don't bleed states
+      };
+    }
+  }, [isConnected, socket, conversationId, addMessage]);
+
   return {
     messages,
     loading,
     error,
     sendMessage,
     refetch: fetchMessages,
+    addMessage,
   };
 }
 

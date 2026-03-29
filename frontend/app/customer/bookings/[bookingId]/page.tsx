@@ -707,9 +707,11 @@ export default function BookingConfirmationPage() {
             {/* Review Section - Only show for completed bookings */}
             {isCompleted && (
               <ReviewForm
+                bookingId={String(booking.id)}
                 serviceName={booking.service.name}
                 companyName={booking.company.name}
                 staffName={booking.assignedStaff?.user?.fullName}
+                staffId={booking.assignedStaff?.id ? String(booking.assignedStaff.id) : undefined}
               />
             )}
           </motion.div>

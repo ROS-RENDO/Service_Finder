@@ -74,6 +74,10 @@ const initializeSocket = (server) => {
       socket.join(`conversation_${conversationId}`);
     });
 
+    socket.on("leave_conversation", (conversationId) => {
+      socket.leave(`conversation_${conversationId}`);
+    });
+
     socket.on("disconnect", () => {
       console.log(`User ${socket.user.id} disconnected`);
     });
