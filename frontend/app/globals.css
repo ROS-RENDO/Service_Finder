@@ -111,6 +111,9 @@
   * {
     @apply border-border outline-ring/50;
   }
+  html {
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-background text-foreground;
   }
@@ -133,6 +136,10 @@
 
   .glass-dark {
     @apply bg-card/40 backdrop-blur-2xl border border-white/5;
+  }
+
+  .glass-neon {
+    @apply backdrop-blur-3xl bg-white/10 dark:bg-black/20 border border-white/20 shadow-2xl;
   }
 
   .shadow-soft {
@@ -200,3 +207,131 @@
 /* Stagger delays */
 .animate-flicker:nth-child(2) { animation-delay: 0.2s; }
 .animate-flicker:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes spin-slow {
+  from {
+    transform: rotate(0deg);
+  }
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.animate-spin-slow {
+  animation: spin-slow 8s linear infinite;
+}
+
+.neon-border-wrapper {
+  position: relative;
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  padding: 1px;
+}
+
+.neon-border-wrapper::before {
+  content: "";
+  position: absolute;
+  top: -50%;
+  left: -50%;
+  width: 200%;
+  height: 200%;
+  background: conic-gradient(
+    transparent,
+    transparent,
+    transparent,
+    var(--primary),
+    oklch(0.6 0.118 184.704), /* Cyan-ish */
+    transparent
+  );
+  animation: spin-slow 4s linear infinite;
+  z-index: 0;
+}
+
+.neon-border-content {
+  position: relative;
+  z-index: 1;
+  border-radius: calc(var(--radius-2xl) - 1px);
+}
+
+/* ─────── Neon Card Glows (landing page components) ─────── */
+@keyframes neon-glow-primary {
+  0%, 100% {
+    box-shadow: 0 0 6px oklch(0.72 0.18 260 / 0.2), 0 0 20px oklch(0.72 0.18 260 / 0.1);
+    border-color: oklch(0.72 0.18 260 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 15px oklch(0.72 0.18 260 / 0.5), 0 0 40px oklch(0.72 0.18 260 / 0.25), 0 0 70px oklch(0.72 0.18 260 / 0.1);
+    border-color: oklch(0.72 0.18 260 / 0.7);
+  }
+}
+@keyframes neon-glow-cyan {
+  0%, 100% {
+    box-shadow: 0 0 6px oklch(0.6 0.118 184 / 0.2), 0 0 20px oklch(0.6 0.118 184 / 0.1);
+    border-color: oklch(0.6 0.118 184 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 15px oklch(0.6 0.118 184 / 0.5), 0 0 40px oklch(0.6 0.118 184 / 0.25);
+    border-color: oklch(0.6 0.118 184 / 0.7);
+  }
+}
+@keyframes neon-glow-emerald {
+  0%, 100% {
+    box-shadow: 0 0 6px oklch(0.7 0.17 162 / 0.2), 0 0 20px oklch(0.7 0.17 162 / 0.1);
+    border-color: oklch(0.7 0.17 162 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 15px oklch(0.7 0.17 162 / 0.5), 0 0 40px oklch(0.7 0.17 162 / 0.25);
+    border-color: oklch(0.7 0.17 162 / 0.7);
+  }
+}
+@keyframes neon-glow-amber {
+  0%, 100% {
+    box-shadow: 0 0 6px oklch(0.77 0.19 70 / 0.2), 0 0 20px oklch(0.77 0.19 70 / 0.1);
+    border-color: oklch(0.77 0.19 70 / 0.35);
+  }
+  50% {
+    box-shadow: 0 0 15px oklch(0.77 0.19 70 / 0.5), 0 0 40px oklch(0.77 0.19 70 / 0.25);
+    border-color: oklch(0.77 0.19 70 / 0.7);
+  }
+}
+
+.neon-card {
+  border: 1px solid oklch(0.72 0.18 260 / 0.35);
+  animation: neon-glow-primary 4s ease-in-out infinite;
+}
+.neon-card-cyan {
+  border: 1px solid oklch(0.6 0.118 184 / 0.35);
+  animation: neon-glow-cyan 4s ease-in-out infinite;
+}
+.neon-card-emerald {
+  border: 1px solid oklch(0.7 0.17 162 / 0.35);
+  animation: neon-glow-emerald 4s ease-in-out infinite;
+}
+.neon-card-amber {
+  border: 1px solid oklch(0.77 0.19 70 / 0.35);
+  animation: neon-glow-amber 4s ease-in-out infinite;
+}
+
+/* Stagger neon phases so cards don't pulse at same time */
+.neon-card:nth-child(2), .neon-card-cyan:nth-child(2) { animation-delay: -1s; }
+.neon-card:nth-child(3), .neon-card-emerald:nth-child(3) { animation-delay: -2s; }
+.neon-card:nth-child(4), .neon-card-amber:nth-child(4) { animation-delay: -3s; }
+
+/* ─────── Marquee (TrustBar) ─────── */
+@keyframes marquee {
+  from { transform: translateX(0); }
+  to { transform: translateX(-50%); }
+}
+.animate-marquee {
+  animation: marquee 35s linear infinite;
+  will-change: transform;
+}
+.animate-marquee:hover { animation-play-state: paused; }
+
+/* ─────── Float particle ─────── */
+@keyframes float-particle {
+  0%, 100% { transform: translateY(0) scale(1); opacity: 0.4; }
+  50% { transform: translateY(-30px) scale(1.2); opacity: 0.8; }
+}
+.animate-float-particle { animation: float-particle var(--dur, 8s) ease-in-out infinite var(--delay, 0s); }
+

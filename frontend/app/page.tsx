@@ -4,14 +4,14 @@ import { FeaturedServices } from "@/components/Home/FeaturedServices";
 import { HeroSection } from "@/components/Home/HeroSection";
 import { HowItWorks } from "@/components/Home/HowItWorks";
 import { Testimonials } from "@/components/Home/Testimonials";
+import { TrustBar } from "@/components/Home/TrustBar";
+import { StatsSection } from "@/components/Home/StatsSection";
+import { FeatureHighlight } from "@/components/Home/FeatureHighlight";
 import { Footer } from "@/components/layout/Footer";
 import { Navbar } from "@/components/layout/Navbar";
-
 import { useAuthContext } from "@/lib/contexts/AuthContext";
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
-
-
 
 const Index = () => {
   const { user, loading, isAuthenticated } = useAuthContext()
@@ -19,19 +19,17 @@ const Index = () => {
 
   useEffect(() => {
     if (!loading && isAuthenticated && user) {
-      // ✅ Redirect to dashboard based on role
       const dashboards = {
         customer: '/customer/dashboard',
         company_admin: '/company/dashboard',
         staff: '/staff/dashboard',
         admin: '/admin/dashboard'
       }
-      
       router.push(dashboards[user.role as keyof typeof dashboards])
     }
   }, [loading, isAuthenticated, user, router])
 
-    if (isAuthenticated) {
+  if (isAuthenticated) {
     return (
       <div className="min-h-screen flex items-center justify-center">
         <p className="text-gray-600">Redirecting to dashboard...</p>
@@ -41,19 +39,20 @@ const Index = () => {
 
   return (
     <div className="min-h-screen bg-background">
-      <Navbar/>
+      <Navbar />
 
       <main>
         <HeroSection />
-        <FeaturedServices/>
-        <HowItWorks/>
-        <Testimonials/>
-        <CTASection/>
-
+        <TrustBar />
+        <StatsSection />
+        <FeaturedServices />
+        <FeatureHighlight />
+        <HowItWorks />
+        <Testimonials />
+        <CTASection />
       </main>
 
-      <Footer/>
-
+      <Footer />
     </div>
   );
 };
