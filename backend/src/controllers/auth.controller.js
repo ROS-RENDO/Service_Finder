@@ -57,8 +57,26 @@ const register = async (req, res, next) => {
       },
     });
 
+    console.log("🔐 REGISTER - User created:");
+    console.log("   ID:", user.id);
+    console.log("   ID type:", typeof user.id);
+    console.log("   Email:", user.email);
+
+    // Verify user can be looked up immediately
+    const verifyUser = await prisma.user.findUnique({
+      where: { id: user.id },
+    });
+    console.log(
+      "🔐 REGISTER - Verify lookup:",
+      verifyUser ? "FOUND" : "NOT FOUND",
+    );
+
     // Generate token
     const token = generateToken(user.id);
+    console.log(
+      "🔐 REGISTER - Token generated, userId in token:",
+      user.id.toString(),
+    );
     res.cookie("token", token, getCookieOptions());
 
     res.status(201).json({
@@ -73,10 +91,10 @@ const register = async (req, res, next) => {
 
 const logout = async (req, res, next) => {
   try {
-    res.clearCookie("token", { 
+    res.clearCookie("token", {
       path: "/",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
-      secure: process.env.NODE_ENV === "production"
+      secure: process.env.NODE_ENV === "production",
     });
 
     console.log("✅ User logged out, cookie cleared");
@@ -124,6 +142,14 @@ const login = async (req, res, next) => {
 
     // Generate token
     const token = generateToken(user.id);
+    console.log("🔐 LOGIN - User found and verified:");
+    console.log("   ID:", user.id);
+    console.log("   ID type:", typeof user.id);
+    console.log("   Email:", user.email);
+    console.log(
+      "🔐 LOGIN - Token generated, userId in token:",
+      user.id.toString(),
+    );
     res.cookie("token", token, getCookieOptions());
 
     // Return user data without password
@@ -365,7 +391,7 @@ const googleLogin = async (req, res, next) => {
       idToken: token,
       audience: process.env.GOOGLE_CLIENT_ID,
     });
-    
+
     const payload = ticket.getPayload();
     const { email, name, picture, sub: googleId } = payload;
 
@@ -375,7 +401,9 @@ const googleLogin = async (req, res, next) => {
     if (!user) {
       // Create user if they don't exist
       // Generate a random password since they use Google
-      const randomPassword = Math.random().toString(36).slice(-10) + Math.random().toString(36).slice(-10);
+      const randomPassword =
+        Math.random().toString(36).slice(-10) +
+        Math.random().toString(36).slice(-10);
       const passwordHash = await bcrypt.hash(randomPassword, 10);
 
       user = await prisma.user.create({
