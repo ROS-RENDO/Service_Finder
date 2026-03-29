@@ -1,7 +1,7 @@
 'use client'
 
 import Link from 'next/link'
-import { Bell, LogOut, MessageCircle, Zap } from 'lucide-react'
+import { Bell, LogOut, MessageCircle, Zap, Check } from 'lucide-react'
 import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dropdown-menu'
 import { useAuthContext } from '@/lib/contexts/AuthContext'
 import { useConversations } from '@/lib/hooks/useChat'
+import { useNotifications } from '@/lib/hooks/useNotifications'
 import { cn } from '@/lib/utils'
 
 interface SharedHeaderProps {
@@ -36,6 +37,7 @@ export default function SharedHeader({
 }: SharedHeaderProps) {
   const { user, logout } = useAuthContext()
   const { conversations } = useConversations()
+  const { notifications, unreadCount: unreadNotifications, markAsRead } = useNotifications()
   const unreadCount = conversations.length
 
   const handleLogout = () => {
@@ -87,10 +89,71 @@ export default function SharedHeader({
           </Link>
 
           {/* Notifications */}
-          <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl">
-            <Bell size={18} />
-            <span className="absolute top-1.5 right-1.5 w-2 h-2 bg-red-500 rounded-full border-2 border-background" />
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="ghost" size="icon" className="relative h-9 w-9 rounded-xl">
+                <Bell size={18} />
+                {unreadNotifications > 0 && (
+                  <Badge className="absolute -top-1 -right-1 h-4 min-w-4 px-1 text-[10px] bg-red-500 text-white border-0 flex items-center justify-center">
+                    {unreadNotifications > 9 ? '9+' : unreadNotifications}
+                  </Badge>
+                )}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-80 p-0 overflow-hidden">
+              <div className="flex items-center justify-between px-4 py-3 bg-muted/30 border-b border-border">
+                <span className="font-semibold text-sm">Notifications</span>
+                {unreadNotifications > 0 && (
+                  <Button 
+                    variant="ghost" 
+                    size="sm" 
+                    className="h-auto p-0 text-xs text-primary hover:text-primary/80"
+                    onClick={() => markAsRead('all')}
+                  >
+                    Mark all as read
+                  </Button>
+                )}
+              </div>
+              <div className="max-h-[300px] overflow-y-auto">
+                {notifications.length === 0 ? (
+                  <div className="p-8 text-center text-sm text-muted-foreground">
+                    No notifications yet
+                  </div>
+                ) : (
+                  notifications.map((notif) => (
+                    <div 
+                      key={notif.id}
+                      className={cn(
+                        "p-4 border-b border-border/50 last:border-0 hover:bg-muted/50 transition-colors cursor-pointer",
+                        !notif.isRead ? "bg-primary/5 hover:bg-primary/10" : ""
+                      )}
+                      onClick={() => {
+                        if (!notif.isRead) markAsRead(notif.id)
+                        if (notif.link) window.location.href = notif.link
+                      }}
+                    >
+                      <div className="flex items-start justify-between gap-2">
+                        <div className="flex-1 space-y-1">
+                          <p className={cn("text-sm", !notif.isRead ? "font-semibold" : "font-medium")}>
+                            {notif.title}
+                          </p>
+                          <p className="text-xs text-muted-foreground line-clamp-2">
+                            {notif.body}
+                          </p>
+                          <p className="text-[10px] text-muted-foreground pt-1 opacity-70">
+                            {new Date(notif.createdAt).toLocaleString()}
+                          </p>
+                        </div>
+                        {!notif.isRead && (
+                          <div className="w-2 h-2 rounded-full bg-primary shrink-0 mt-1" />
+                        )}
+                      </div>
+                    </div>
+                  ))
+                )}
+              </div>
+            </DropdownMenuContent>
+          </DropdownMenu>
 
           {/* User Menu */}
           <DropdownMenu>
