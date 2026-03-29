@@ -8,11 +8,105 @@ import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { toast } from "sonner";
+import { useState, useEffect } from "react";
+import { ImageUpload } from "@/components/ui/ImageUpload";
+import { FlickerDots } from "@/components/common/FlickerDots";
 
 export default function Settings() {
-  const handleSave = () => {
-    toast.success("Settings saved successfully!");
+  const [companyId, setCompanyId] = useState("");
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  const [formData, setFormData] = useState({
+    name: "",
+    phone: "",
+    email: "",
+    address: "",
+    description: "",
+    logoUrl: "",
+    coverImageUrl: ""
+  });
+
+  useEffect(() => {
+    fetchCompanyData();
+  }, []);
+
+  const fetchCompanyData = async () => {
+    try {
+      const token = localStorage.getItem("token");
+      
+      // Get user's company ID
+      const userRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/auth/me`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      const userData = await userRes.json();
+      const cId = userData.data?.company?.id || userData.data?.companyId;
+      
+      if (!cId) {
+        setLoading(false);
+        return;
+      }
+      setCompanyId(cId);
+
+      // Fetch company details
+      const compRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/${cId}`);
+      if (compRes.ok) {
+        const compData = await compRes.json();
+        const c = compData.data;
+        setFormData({
+          name: c.name || "",
+          phone: c.phone || "",
+          email: c.email || "",
+          address: c.address || "",
+          description: c.description || "",
+          logoUrl: c.logoUrl || "",
+          coverImageUrl: c.coverImageUrl || ""
+        });
+      }
+    } catch (error) {
+      console.error("Failed to fetch company", error);
+      toast.error("Failed to load settings");
+    } finally {
+      setLoading(false);
+    }
   };
+
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
+    const { id, value } = e.target;
+    setFormData(prev => ({ ...prev, [id]: value }));
+  };
+
+  const handleSave = async () => {
+    if (!companyId) return;
+    setSaving(true);
+    
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/companies/${companyId}`, {
+        method: "PUT",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${token}`
+        },
+        body: JSON.stringify(formData)
+      });
+      
+      if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.error || "Failed to save settings");
+      }
+      
+      toast.success("Settings saved successfully!");
+    } catch (error: any) {
+      toast.error(error.message);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  if (loading) {
+    return <div className="min-h-[60vh] flex items-center justify-center"><FlickerDots /></div>;
+  }
 
   return (
     <div className="space-y-6">
@@ -37,30 +131,50 @@ export default function Settings() {
             <CardContent className="space-y-6">
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="companyName">Company Name</Label>
-                  <Input id="companyName" defaultValue="SparkleClean Services" />
+                  <Label>Company Logo</Label>
+                  <ImageUpload 
+                    value={formData.logoUrl} 
+                    onChange={(url) => setFormData(prev => ({ ...prev, logoUrl: url }))} 
+                    label="Upload Logo"
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label>Cover Image</Label>
+                  <ImageUpload 
+                    value={formData.coverImageUrl} 
+                    onChange={(url) => setFormData(prev => ({ ...prev, coverImageUrl: url }))} 
+                    label="Upload Cover"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4 pt-4 border-t border-border">
+                <div className="space-y-2">
+                  <Label htmlFor="name">Company Name</Label>
+                  <Input id="name" value={formData.name} onChange={handleInputChange} />
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="phone">Phone Number</Label>
-                  <Input id="phone" defaultValue="+1 (555) 123-4567" />
+                  <Input id="phone" value={formData.phone} onChange={handleInputChange} />
                 </div>
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="email">Business Email</Label>
-                <Input id="email" type="email" defaultValue="hello@sparkleclean.com" />
+                <Input id="email" type="email" value={formData.email} onChange={handleInputChange} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="address">Business Address</Label>
-                <Textarea id="address" defaultValue="123 Business Ave, Suite 100, New York, NY 10001" rows={2} />
+                <Textarea id="address" value={formData.address} onChange={handleInputChange} rows={2} />
               </div>
 
               <div className="space-y-2">
                 <Label htmlFor="description">Business Description</Label>
                 <Textarea
                   id="description"
-                  defaultValue="Professional cleaning services for homes and offices. We pride ourselves on attention to detail and eco-friendly practices."
+                  value={formData.description}
+                  onChange={handleInputChange}
                   rows={3}
                 />
               </div>
@@ -83,7 +197,9 @@ export default function Settings() {
                 <Switch />
               </div>
 
-              <Button onClick={handleSave}>Save Changes</Button>
+              <Button onClick={handleSave} disabled={saving}>
+                {saving ? "Saving..." : "Save Changes"}
+              </Button>
             </CardContent>
           </Card>
         </TabsContent>

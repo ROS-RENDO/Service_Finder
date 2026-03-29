@@ -17,6 +17,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { ImageUpload } from "@/components/ui/ImageUpload";
 
 interface Category {
   id: string;
@@ -41,6 +42,7 @@ export default function ServiceNew() {
   const [selectedCategory, setSelectedCategory] = useState("");
   const [selectedServiceType, setSelectedServiceType] = useState("");
   const [loadingServiceTypes, setLoadingServiceTypes] = useState(false);
+  const [imageUrl, setImageUrl] = useState("");
 
   useEffect(() => {
     fetchInitialData();
@@ -140,7 +142,7 @@ export default function ServiceNew() {
       durationMin,
       durationMax,
       features: (formData.get("features") as string).split(',').map(f => f.trim()).filter(Boolean),
-      image: formData.get("image") as string || null,
+      image: imageUrl || null,
       isActive
     };
 
@@ -276,11 +278,11 @@ export default function ServiceNew() {
             </div>
 
             <div className="space-y-2">
-              <Label htmlFor="image">Image URL</Label>
-              <Input
-                id="image"
-                name="image"
-                placeholder="https://images.unsplash.com/..."
+              <Label>Service Image</Label>
+              <ImageUpload
+                value={imageUrl}
+                onChange={setImageUrl}
+                label="Upload Service Image"
               />
             </div>
 

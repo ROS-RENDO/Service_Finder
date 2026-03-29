@@ -1,7 +1,7 @@
 const express = require('express');
 const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
+const { CloudinaryStorage } = require('multer-storage-cloudinary');
+const cloudinary = require('../config/cloudinary');
 const { v4: uuidv4 } = require('uuid');
 const {
   getAllCompanies,
@@ -28,29 +28,24 @@ const { authenticate, authorize } = require('../middleware/auth');
 
 const router = express.Router();
 
-// ─── Multer setup for company image uploads ──────────────────────────────────
-const uploadDir = path.join(__dirname, '../../uploads/companies');
-if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (_req, _file, cb) => cb(null, uploadDir),
-  filename: (_req, file, cb) => {
-    const unique = `${Date.now()}-${uuidv4()}${path.extname(file.originalname)}`;
-    cb(null, unique);
+// ─── Multer setup for Cloudinary image uploads ──────────────────────────────────
+const storage = new CloudinaryStorage({
+  cloudinary: cloudinary,
+  params: {
+    folder: 'service-finder/companies',
+    allowed_formats: ['jpg', 'jpeg', 'png', 'webp'],
+    transformation: [{ width: 1200, crop: 'limit' }], // resize large images
   },
 });
+
 const upload = multer({
   storage,
   limits: { fileSize: 5 * 1024 * 1024 }, // 5 MB
-  fileFilter: (_req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) cb(null, true);
-    else cb(new Error('Only image files are allowed'));
-  },
 });
 
 // ─── Image upload endpoint ────────────────────────────────────────────────────
 // POST /api/companies/upload-image
-// Returns { url: '/uploads/companies/<filename>' }
+// Returns { url: 'https://res.cloudinary.com/...' }
 router.post(
   '/upload-image',
   authenticate,
@@ -60,8 +55,8 @@ router.post(
     if (!req.file) {
       return res.status(400).json({ error: 'No image file provided' });
     }
-    const url = `/uploads/companies/${req.file.filename}`;
-    res.json({ success: true, url });
+    // Cloudinary returns the secure url in req.file.path
+    res.json({ success: true, url: req.file.path });
   }
 );
 
