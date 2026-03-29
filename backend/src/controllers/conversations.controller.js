@@ -1,5 +1,6 @@
 const prisma = require('../config/database');
 const { getIo } = require('../config/socket');
+const { createNotification } = require('../utils/notifications');
 
 // List conversations for the authenticated user
 const getMyConversations = async (req, res, next) => {
@@ -212,7 +213,7 @@ const sendMessage = async (req, res, next) => {
       data: { updatedAt: new Date() },
     });
 
-    // Broadcast to WebSocket room
+      // Broadcast to WebSocket room
     try {
       const io = getIo();
       if (io) {
@@ -227,6 +228,31 @@ const sendMessage = async (req, res, next) => {
       }
     } catch (wsError) {
       console.error("WebSocket broadcast failed:", wsError);
+    }
+
+    // Trigger Notification for the recipient(s)
+    try {
+      const conversation = await prisma.conversation.findUnique({
+        where: { id: convoId },
+        include: { participants: true }
+      });
+
+      if (conversation) {
+        const recipients = conversation.participants.filter(p => p.userId !== userId);
+        
+        for (const recipient of recipients) {
+          await createNotification(
+            recipient.userId,
+            'New Message',
+            `You have a new message from ${message.sender.fullName}: "${message.content.substring(0, 50)}${message.content.length > 50 ? '...' : ''}"`,
+            'message',
+            req.user.role === 'customer' ? '/customer/messages' : 
+            req.user.role === 'staff' ? '/staff/messages' : '/company/messages'
+          );
+        }
+      }
+    } catch (notificationError) {
+      console.error("Failed to send message notification:", notificationError);
     }
 
     res.status(201).json({

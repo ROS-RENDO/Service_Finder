@@ -19,6 +19,7 @@ const categoryRoutes = require("./routes/category.routes");
 const serviceTypeRoutes = require("./routes/serviceType.routes");
 const staffRoutes = require("./routes/staff.routes");
 const aiRoutes = require("./routes/ai.routes");
+const notificationRoutes = require("./routes/notifications.routes");
 
 const app = express();
 
@@ -101,6 +102,7 @@ app.use("/api/reviews", reviewRoutes);
 app.use("/api/conversations", conversationRoutes);
 app.use("/api/staff", staffRoutes);
 app.use("/api/analyze-wall", aiRoutes);
+app.use("/api/notifications", notificationRoutes);
 
 app.use("/api/categories", categoryRoutes);
 app.use("/api/service-types", serviceTypeRoutes);

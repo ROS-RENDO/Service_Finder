@@ -5,6 +5,7 @@
 
 const bookingService = require('../services/booking.service');
 const prisma = require('../config/database');
+const { createNotification } = require('../utils/notifications');
 
 /**
  * Get all bookings with pagination
@@ -206,6 +207,17 @@ const createBooking = async (req, res, next) => {
       },
     });
 
+    // Notify company owner
+    if (booking.company && booking.company.ownerId) {
+      await createNotification(
+        booking.company.ownerId,
+        'New Booking Received',
+        `You have a new booking from ${booking.customer.fullName} for ${booking.service.name}.`,
+        'booking',
+        `/company/bookings/${booking.id}`
+      );
+    }
+
     res.status(201).json({
       success: true,
       message: 'Booking created successfully',
@@ -251,6 +263,17 @@ const updateBookingStatus = async (req, res, next) => {
       req.user.id
     );
 
+    // Notify customer
+    if (updatedBooking.customerId) {
+      await createNotification(
+        updatedBooking.customerId,
+        'Booking Status Updated',
+        `Your booking #${updatedBooking.id} status is now: ${status.replace('_', ' ')}`,
+        'booking',
+        `/customer/bookings/${updatedBooking.id}`
+      );
+    }
+
     res.json({
       message: 'Booking status updated successfully',
       booking: updatedBooking,
@@ -276,6 +299,17 @@ const assignStaff = async (req, res, next) => {
     }
 
     const booking = await bookingService.assignStaff(id, staffId, req.user.id);
+
+    // Get staff's user ID to notify them
+    if (booking.assignedStaff && booking.assignedStaff.userId) {
+      await createNotification(
+        booking.assignedStaff.userId,
+        'New Job Assignment',
+        `You have been assigned to a new booking #${booking.id}.`,
+        'booking',
+        `/staff/bookings/${booking.id}`
+      );
+    }
 
     res.json({
       success: true,
@@ -307,6 +341,17 @@ const startJob = async (req, res, next) => {
     }
 
     const booking = await bookingService.startJob(id, staff.id);
+
+    // Notify customer
+    if (booking.customerId) {
+      await createNotification(
+        booking.customerId,
+        'Staff is on the way/started',
+        `Your assigned staff has started the job for booking #${booking.id}.`,
+        'booking',
+        `/customer/bookings/${booking.id}`
+      );
+    }
 
     res.json({
       success: true,
@@ -384,6 +429,17 @@ const completeJob = async (req, res, next) => {
 
     const booking = await bookingService.completeJob(id, staff.id);
 
+    // Notify customer
+    if (booking.customerId) {
+      await createNotification(
+        booking.customerId,
+        'Job Completed',
+        `Your booking #${booking.id} has been marked as completed. Please leave a review!`,
+        'booking',
+        `/customer/bookings/${booking.id}`
+      );
+    }
+
     res.json({
       success: true,
       message: 'Job completed successfully',
@@ -439,6 +495,31 @@ const cancelBooking = async (req, res, next) => {
         reason,
       },
     });
+
+    // Notify the other party
+    if (req.user.role === 'customer') {
+      // Notify company
+      if (updatedBooking.company && updatedBooking.company.ownerId) {
+        await createNotification(
+          updatedBooking.company.ownerId,
+          'Booking Cancelled',
+          `${req.user.fullName || 'Customer'} has cancelled booking #${id}. Reason: ${reason || 'None provided'}`,
+          'booking',
+          `/company/bookings/${id}`
+        );
+      }
+    } else {
+      // Notify customer
+      if (updatedBooking.customerId) {
+        await createNotification(
+          updatedBooking.customerId,
+          'Booking Cancelled',
+          `Your booking #${id} has been cancelled by the service provider.`,
+          'booking',
+          `/customer/bookings/${id}`
+        );
+      }
+    }
 
     res.json({
       message: 'Booking cancelled successfully',

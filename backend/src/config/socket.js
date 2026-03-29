@@ -29,6 +29,9 @@ const initializeSocket = (server) => {
 
   io.on("connection", (socket) => {
     console.log(`User connected: ${socket.user.id} (${socket.user.role}) - Socket: ${socket.id}`);
+    
+    // Automatically join a personal room for notifications
+    socket.join(`user_${socket.user.id}`);
 
     // Join a specific booking room to track live location/status
     socket.on("join_booking", (bookingId) => {
