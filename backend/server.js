@@ -1,6 +1,8 @@
 require("dotenv").config();
 const { exec } = require("child_process");
+const http = require("http");
 const app = require("./src/app");
+const { initializeSocket } = require("./src/config/socket");
 
 const PORT = process.env.PORT || 5000;
 
@@ -27,10 +29,16 @@ async function startServer() {
 }
 
 function startApp() {
-  app.listen(PORT, () => {
+  const server = http.createServer(app);
+  
+  // Initialize WebSocket Server
+  initializeSocket(server);
+
+  server.listen(PORT, () => {
     console.log(`🚀 Server is running on port ${PORT}`);
     console.log(`📝 Environment: ${process.env.NODE_ENV || "development"}`);
     console.log(`🔗 API Base URL: http://localhost:${PORT}/api`);
+    console.log(`🔌 WebSocket Server Initialized`);
   });
 }
 

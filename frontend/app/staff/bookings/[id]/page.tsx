@@ -31,10 +31,11 @@ import { Separator } from "@/components/ui/separator";
 import { toast } from "sonner";
 import { useStaffBookings } from "@/lib/hooks/useStaff";
 import type { Booking, BookingStatus } from "@/types/booking.types";
+import { useSocket } from "@/lib/hooks/useSocket";
 import dynamic from "next/dynamic";
 
-const DynamicStaffBookingMapCore = dynamic(
-  () => import("@/components/service/StaffBookingMapCore"),
+const InteractiveMap = dynamic(
+  () => import("@/components/maps/InteractiveMap"),
   { ssr: false, loading: () => <div className="h-64 w-full bg-slate-100 animate-pulse flex items-center justify-center">Loading Map...</div> }
 );
 
@@ -60,6 +61,7 @@ export default function StaffBookingDetail() {
   const { getBookingById, updateBookingStatus } = useStaffBookings({
     autoFetch: false,
   });
+  const { socket, isConnected } = useSocket();
 
   const fetchBooking = async () => {
     if (!id) return;
@@ -96,6 +98,16 @@ export default function StaffBookingDetail() {
   useEffect(() => {
     fetchBooking();
   }, [id]);
+
+  // Handle Socket.io joining booking room
+  useEffect(() => {
+    if (isConnected && socket && id) {
+      socket.emit("join_booking", id);
+      return () => {
+        socket.emit("leave_booking", id);
+      };
+    }
+  }, [isConnected, socket, id]);
 
   const handleConfirmCash = async () => {
     if (!booking) return;
@@ -329,20 +341,59 @@ export default function StaffBookingDetail() {
               </div>
             </CardHeader>
             <CardContent className="p-0">
-              <DynamicStaffBookingMapCore
-                latitude={booking.latitude != null ? Number(booking.latitude) : null}
-                longitude={booking.longitude != null ? Number(booking.longitude) : null}
-                customerName={booking.customer.fullName}
-                serviceAddress={booking.serviceAddress}
-              />
-              <div className="p-4 bg-secondary/50">
-                <p className="text-sm font-medium">{booking.serviceAddress}</p>
-                {!booking.latitude && !booking.longitude && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    No GPS coordinates available
-                  </p>
-                )}
-              </div>
+              {(() => {
+                const lat = booking.latitude != null ? Number(booking.latitude) : null;
+                const lng = booking.longitude != null ? Number(booking.longitude) : null;
+                const hasValidLocation = lat !== null && lng !== null;
+                const isTracking = booking.status === 'in_progress' || booking.status === 'enroute';
+                
+                const markers: any[] = [];
+                if (hasValidLocation) {
+                  markers.push({
+                    lat, 
+                    lng, 
+                    type: "customer", 
+                    label: booking.customer.fullName, 
+                    popupHtml: `<b>${booking.customer.fullName}</b><br/>${booking.serviceAddress}`
+                  });
+                }
+                
+                return (
+                  <>
+                    <InteractiveMap
+                      markers={markers}
+                      center={hasValidLocation ? { lat: lat!, lng: lng! } : undefined}
+                      trackStaff={isTracking}
+                      onStaffMoved={(staffLat, staffLng) => {
+                        if (socket && isConnected) {
+                          socket.emit("staff_location_update", {
+                            bookingId: booking.id,
+                            latitude: staffLat,
+                            longitude: staffLng
+                          });
+                        }
+                      }}
+                      className="h-64 border-0 rounded-none"
+                    />
+                    <div className="p-4 bg-secondary/50 flex items-center justify-between">
+                      <div>
+                        <p className="text-sm font-medium">{booking.serviceAddress}</p>
+                        {!hasValidLocation && (
+                          <p className="text-xs text-muted-foreground mt-1">
+                            No GPS coordinates available
+                          </p>
+                        )}
+                      </div>
+                      {isTracking && (
+                        <span className="flex items-center gap-1 text-xs font-semibold text-green-600 bg-green-100 dark:bg-green-900/30 px-2.5 py-1 rounded-full">
+                          <span className="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse"></span>
+                          Broadcasting Location
+                        </span>
+                      )}
+                    </div>
+                  </>
+                );
+              })()}
             </CardContent>
           </Card>
         </motion.div>

@@ -36,6 +36,7 @@ import Image from "next/image";
 import { Navbar } from "@/components/layout/Navbar";
 import { Booking } from "@/types/booking.types";
 import { useMessages } from "@/lib/hooks/useChat";
+import { useSocket } from "@/lib/hooks/useSocket";
 import dynamic from "next/dynamic";
 
 const InteractiveMap = dynamic(() => import("@/components/maps/InteractiveMap"), { ssr: false });
@@ -54,6 +55,7 @@ export default function BookingConfirmationPage() {
   const [staffLat, setStaffLat] = useState<number | null>(null);
   const [staffLng, setStaffLng] = useState<number | null>(null);
   const { sendMessage } = useMessages();
+  const { socket, isConnected } = useSocket();
 
   useEffect(() => {
     const fetchBooking = async () => {
@@ -70,6 +72,26 @@ export default function BookingConfirmationPage() {
 
     fetchBooking();
   }, []);
+
+  // Handle socket connection and real-time live location tracking
+  useEffect(() => {
+    if (isConnected && socket && bookingId) {
+      // Subscribe to this specific booking's location broadcast
+      socket.emit("join_booking", bookingId);
+
+      socket.on("staff_location_updated", (data: any) => {
+        if (data.latitude && data.longitude) {
+          setStaffLat(data.latitude);
+          setStaffLng(data.longitude);
+        }
+      });
+
+      return () => {
+        socket.off("staff_location_updated");
+        socket.emit("leave_booking", bookingId);
+      };
+    }
+  }, [isConnected, socket, bookingId]);
 
 
   const handleDownloadReceipt = () => {
